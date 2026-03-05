@@ -1,0 +1,566 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Chip Firing</title>
+  <style>
+    body { font-family: system-ui, sans-serif; padding: 24px; }
+    button { padding: 8px 12px; }
+    pre { background:#f6f8fa; padding:12px; border-radius:8px; overflow:auto; }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <h1>WebGPU Chip Firing</h1>
+  <p>This page runs a chip firing matrix multiplication on the GPU using WebGPU.</p>
+  <button id="runBtn">Fire Chips</button>
+  <input id="dispatchCount" type="number" min="1" max="1000000" value="1000" style="margin-left:10px; width:80px;" />
+  <label for="dispatchCount" style="display: inline-block; width: 170px">Dispatches</label>
+  <input id="chipCount" type="number" min="1" max="1000000" value="10000" style="margin-left:10px; width:80px;" />
+  <label for="chipCount" style="display: inline-block; width: 170px">Chips</label>
+  <input id="widthCount" type="number" min="1" max="1000000" value="10" style="margin-left:10px; width:80px;" />
+  <label for="widthCount" style="display: inline-block; width: 170px">Graph Width</label>
+  <br><br>
+  <button id="testBtn">Run Tests</button>
+  <input id="loopCount" type="number" min="1" max="1000000" value="5" style="margin-left:10px; width:80px;" />
+  <label for="loopCount" style="display: inline-block; width: 170px">Test Loops</label>
+  <input id="gmCount" type="number" min="1" max="1000000" value="10" style="margin-left:10px; width:80px;" />
+  <label for="gmCount" style="display: inline-block; width: 170px">Graph Multiplier</label>
+  <input id="emCount" type="number" min="1" max="1000000" value="0" style="margin-left:10px; width:80px;" />
+  <label for="emCount" style="display: inline-block; width: 170px">Edge Multiplier</label>
+  <div id="out"></div>
+  <pre id="log"></pre>
+  <canvas id="myChart" width="400" height="400"></canvas>
+<script type="module">
+
+let hidelogs = false;
+const logEl = document.getElementById('log');
+function log(...args) { if (!hidelogs) logEl.textContent += args.join(' ') + '\n'; }
+function setlog(...args) { logEl.textContent = args.join(' ') + '\n'; }
+let DISPATCHES = parseInt(document.getElementById('dispatchCount').value) || 0;
+let M = parseInt(document.getElementById('widthCount').value) || 0;
+let STACK = parseInt(document.getElementById('chipCount').value) || 0;
+let EDGERADIUS = 1;
+let CHART;
+const averaging = 10;
+if (!navigator.gpu) {
+    log("WebGPU not supported in this browser.");
+}
+const adapter = await navigator.gpu.requestAdapter();
+if (!adapter.features.has("timestamp-query")) {
+    log("GPU time performance features not supported on this machine.");
+}
+const device = await adapter.requestDevice({
+    requiredFeatures: ["timestamp-query", "chromium-experimental-timestamp-query-inside-passes"],
+});
+const querySet = device.createQuerySet({
+    type: "timestamp",
+    count: 2
+});
+const resolveBuffer = device.createBuffer({
+    size: 16,
+    usage: GPUBufferUsage.QUERY_RESOLVE | GPUBufferUsage.COPY_SRC
+});
+const timestampReadBuffer = device.createBuffer({
+    size: 16,
+    usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST
+});
+
+function log_matrix(m, size) {
+    for (let i = 0; i < size; i++) {
+        let p = "  [";
+        for (let j = 0; j < size; j++) {
+            p += m[i*size + j];
+            if (j < size - 1) p += ", ";
+        }
+        log(p + "]");
+    }
+}
+
+function generate_EDGES(size) {
+    const t = new Int32Array(size*size*size*size);
+    t.fill(-1);
+    for (let r = 0; r < size*size; r++) {
+        let ind = 0;
+        let x = r % (size);
+        let y = Math.floor(r/(size));
+        for (let i = 0; i < EDGERADIUS * 2 + 1; i++) {
+            for (let j = 0; j < EDGERADIUS * 2 + 1; j++) {
+                let superx = x - i + EDGERADIUS;
+                let supery = y - j + EDGERADIUS;
+                if (superx == x && supery == y) continue;
+                let dx = x - superx;
+                let dy = y - supery;
+                let dist = Math.sqrt(dx*dx + dy*dy);
+                if (superx >= 0 && supery >= 0 && superx < size && supery < size && dist <= EDGERADIUS) {
+                    t[r*size*size + ind] = supery*size + superx;
+                    ind++;
+                }
+            }
+        }
+    }
+    return t;
+}
+
+function generate_ADJ(size) {
+    const edges = generate_EDGES(size);
+    const t = new Int32Array(size*size*size*size);
+    for (let r = 0; r < size*size; r++) {
+        for (let c = 0; c < size*size; c++) {
+            if (edges[r*size*size + c] < 0) break;
+            t[r*size*size + (edges[r*size*size + c])] = 1;
+        }
+    }
+    return t;
+}
+
+function generate_DEG(size) {
+    const t = new Int32Array(size*size*size*size);
+    for (let r = 0; r < size; r++) {
+        for (let c = 0; c < size; c++) {
+            let s = 0;
+            if (c > 0) s++;
+            if (r > 0) s++;
+            if (r < size - 1) s++;
+            if (c < size - 1) s++;
+            let ind = r*size + c;
+            t[(ind*size*size) + ind] = s;
+        }
+    }
+    return t;
+}
+
+function flatten_DEG(size) {
+    const t = new Int32Array(size*size);
+    for (let r = 0; r < size; r++) {
+        for (let c = 0; c < size; c++) {
+            let s = 0;
+            if (c > 0) s++;
+            if (r > 0) s++;
+            if (r < size - 1) s++;
+            if (c < size - 1) s++;
+            t[r*size + c] = s;
+        }
+    }
+    return t;
+}
+
+function generate_values(size, stack) {
+    const t = new Int32Array(size*size);
+    t[Math.floor(size/2)*size + Math.floor(size/2)] = stack;
+    return t;
+}
+
+function generate_fire(size) {
+    const t = new Int32Array(size*size);
+    t[Math.floor(size/2)*size + Math.floor(size/2)] = 1;
+    return t;
+}
+
+async function laplace() {
+    log("Running Laplace implementation...");
+
+    // Setup
+    log("Generating laplacian...");
+    const ADJ = generate_ADJ(M);
+    const DEG = generate_DEG(M);
+    const CHIPS = generate_values(M, STACK);
+    const FIRE = generate_fire(M);
+    const RESULT = new Int32Array(M*M);
+    const NEWCHIPS = new Int32Array(M*M);
+    const LAP = new Int32Array(M*M*M*M);
+    const n = M*M;
+    for (let i = 0; i < M*M*M*M; i++) LAP[i] = DEG[i] - ADJ[i];
+    log("Initial chip configuration:");
+    log_matrix(Array.from(CHIPS), M);
+
+    // GPU Setup
+    const LAP_Buffer = device.createBuffer({
+        size: LAP.byteLength,
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
+    });
+    const DEG_Buffer = device.createBuffer({
+        size: DEG.byteLength,
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
+    });
+    const FIRE_Buffer = device.createBuffer({
+        size: FIRE.byteLength,
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
+    });
+    const OUT_Buffer = device.createBuffer({
+        size: RESULT.byteLength,
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST
+    });
+    const READ_Buffer = device.createBuffer({
+        size: RESULT.byteLength,
+        usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
+    });
+    device.queue.writeBuffer(LAP_Buffer, 0, LAP);
+    device.queue.writeBuffer(DEG_Buffer, 0, DEG);
+    device.queue.writeBuffer(FIRE_Buffer, 0, FIRE);
+    device.queue.writeBuffer(OUT_Buffer, 0, CHIPS);
+
+    // Shader code
+    const stage_1 = /*wgsl*/`
+        @group(0) @binding(0) var<storage, read> L : array<i32>;
+        @group(0) @binding(1) var<storage, read> F : array<i32>;
+        @group(0) @binding(2) var<storage, read_write> out : array<i32>;
+        const N : u32 = ${n}u;
+        
+        var<workgroup> partial : array<i32, 64>;
+
+        @compute @workgroup_size(64)
+        fn main(@builtin(local_invocation_id) local_id : vec3<u32>,
+                @builtin(workgroup_id) wg_id : vec3<u32>,
+                @builtin(global_invocation_id) global_id : vec3<u32>) {
+
+            let i = wg_id.x;
+            if (i >= N) { return; }
+            var j : u32 = local_id.x;
+            var sum : i32 = 0;
+            while (j < N) {
+                sum += L[i * N + j] * F[j];
+                j += 64u;
+            }
+            partial[local_id.x] = sum;
+            workgroupBarrier();
+            var stride = 64u / 2u;
+            loop {
+                if (stride == 0u) { break; }
+                if (local_id.x < stride) {
+                    partial[local_id.x] += partial[local_id.x + stride];
+                }
+                stride = stride / 2u;
+                workgroupBarrier();
+            }
+            if (local_id.x == 0u) {
+                out[i] = out[i] - partial[0];
+            }
+        }
+    `;
+
+    const stage_2 = /*wgsl*/`
+        @group(0) @binding(0) var<storage, read> D : array<i32>;
+        @group(0) @binding(1) var<storage, read_write> F : array<i32>;
+        @group(0) @binding(2) var<storage, read> out : array<i32>;
+        const N : u32 = ${n}u;
+
+        @compute @workgroup_size(1)
+        fn main(@builtin(global_invocation_id) id : vec3<u32>) {
+            let i = id.x;
+            if (out[i] >= D[i * N + i]) {
+                F[i] = 1;
+            } else {
+                F[i] = 0;
+            }
+        }
+    `;
+
+    // Execute
+    log(`Executing ${DISPATCHES} dispatches of chipfiring on the GPU...`);
+    const module_1 = device.createShaderModule({code: stage_1});
+    const module_2 = device.createShaderModule({code: stage_2});
+    const pipeline_1 = device.createComputePipeline({
+        layout: "auto",
+        compute: { module: module_1, entryPoint: "main" }
+    });
+    const pipeline_2 = device.createComputePipeline({
+        layout: "auto",
+        compute: { module: module_2, entryPoint: "main" }
+    });
+    const bindgroup_1 = device.createBindGroup({
+        layout: pipeline_1.getBindGroupLayout(0),
+        entries: [
+            { binding: 0, resource: { buffer: LAP_Buffer } },
+            { binding: 1, resource: { buffer: FIRE_Buffer } },
+            { binding: 2, resource: { buffer: OUT_Buffer } },
+        ]
+    });
+    const bindgroup_2 = device.createBindGroup({
+        layout: pipeline_2.getBindGroupLayout(0),
+        entries: [
+            { binding: 0, resource: { buffer: DEG_Buffer } },
+            { binding: 1, resource: { buffer: FIRE_Buffer } },
+            { binding: 2, resource: { buffer: OUT_Buffer } },
+        ]
+    });
+    {
+        const encoder = device.createCommandEncoder();
+        for (let i = 0; i < DISPATCHES; i++) {
+            {
+                const pass = encoder.beginComputePass();
+                pass.setPipeline(pipeline_1);
+                pass.setBindGroup(0, bindgroup_1);
+                if (i == 0) pass.writeTimestamp(querySet, 0);
+                pass.dispatchWorkgroups(n);
+                pass.end();
+            }
+            {
+                const pass = encoder.beginComputePass();
+                pass.setPipeline(pipeline_2);
+                pass.setBindGroup(0, bindgroup_2);
+                pass.dispatchWorkgroups(n);
+                if (i == DISPATCHES - 1) pass.writeTimestamp(querySet, 1);
+                pass.end();
+            }
+        }
+        encoder.resolveQuerySet(querySet, 0, 2, resolveBuffer, 0);
+        encoder.copyBufferToBuffer(resolveBuffer, 0, timestampReadBuffer, 0, 16);
+        encoder.copyBufferToBuffer(OUT_Buffer, 0, READ_Buffer, 0, RESULT.byteLength);
+        device.queue.submit([encoder.finish()]);
+        await device.queue.onSubmittedWorkDone();
+    }
+    await READ_Buffer.mapAsync(GPUMapMode.READ);
+    RESULT.set(new Int32Array(READ_Buffer.getMappedRange()));
+    READ_Buffer.unmap();
+    log("Final chip configuration:");
+    log_matrix(Array.from(RESULT), M);
+    await timestampReadBuffer.mapAsync(GPUMapMode.READ);
+    const arrayBuffer = timestampReadBuffer.getMappedRange();
+    const ts = new BigUint64Array(arrayBuffer.slice(0));
+    const t0 = ts[0];
+    const t1 = ts[1];
+    timestampReadBuffer.unmap();
+    const timestampPeriod = (adapter.limits && adapter.limits.timestampPeriod) ? adapter.limits.timestampPeriod : (device.limits && device.limits.timestampPeriod) ? device.limits.timestampPeriod : 1;
+    const deltaTicks = Number(t1 - t0);
+    const elapsedMs = (deltaTicks * timestampPeriod) / 1e6;
+    READ_Buffer.destroy();
+    LAP_Buffer.destroy();
+    DEG_Buffer.destroy();
+    FIRE_Buffer.destroy();
+    OUT_Buffer.destroy();
+    log(`GPU time for all dispatches: ${elapsedMs.toFixed(6)} ms (ticks=${deltaTicks}, period=${timestampPeriod} ns/tick)`);
+    return elapsedMs;
+}
+
+async function brute() {
+    log("Running compress implementation...");
+
+    // Setup
+    log("Generating compressed structure...");
+    const VALUES = generate_values(M, STACK);
+    const DEG = flatten_DEG(M);
+    const EDGES = generate_EDGES(M); // Note: this is NxN space inefficient at the moment, will fix later
+    const n = M*M;
+    const CANVAS = new Int32Array(n);
+    const RESULT = new Int32Array(n);
+    log("Initial chip configuration:");
+    log_matrix(Array.from(VALUES), M);
+
+    // GPU Setup
+    const VALUE_Buffer = device.createBuffer({
+        size: VALUES.byteLength,
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC
+    });
+    const EDGE_Buffer = device.createBuffer({
+        size: EDGES.byteLength,
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
+    });
+    const DEG_Buffer = device.createBuffer({
+        size: DEG.byteLength,
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
+    });
+    const CANVAS_Buffer = device.createBuffer({
+        size: CANVAS.byteLength,
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC
+    });
+    const READ_Buffer = device.createBuffer({
+        size: CANVAS.byteLength,
+        usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
+    });
+    device.queue.writeBuffer(VALUE_Buffer, 0, VALUES);
+    device.queue.writeBuffer(EDGE_Buffer, 0, EDGES);
+    device.queue.writeBuffer(DEG_Buffer, 0, DEG);
+    device.queue.writeBuffer(CANVAS_Buffer, 0, CANVAS);
+
+    // Shader code
+    const stage_1 = /*wgsl*/`
+        @group(0) @binding(0) var<storage, read> V : array<i32>;
+        @group(0) @binding(1) var<storage, read> E : array<i32>;
+        @group(0) @binding(2) var<storage, read> D : array<i32>;
+        @group(0) @binding(3) var<storage, read_write> C : array<i32>;
+        const N : u32 = ${n}u;
+
+        @compute @workgroup_size(1)
+        fn main(@builtin(global_invocation_id) id : vec3<u32>) {
+            let i = id.x;
+            var sum : i32 = V[i];
+            if (sum >= D[i]) {
+                sum = sum - D[i];
+            }
+            for (var j : u32 = 0u; j < N; j = j + 1u) {
+                var ind : i32 = E[i * N + j];
+                if (ind < 0) { break; }
+                if (V[ind] >= D[ind]) { sum = sum + 1; }
+            }
+            C[i] = sum;
+        }
+    `;
+
+    const stage_2 = /*wgsl*/`
+        @group(0) @binding(0) var<storage, read_write> V : array<i32>;
+        @group(0) @binding(1) var<storage, read> C : array<i32>;
+
+        @compute @workgroup_size(1)
+        fn main(@builtin(global_invocation_id) id : vec3<u32>) {
+            V[id.x] = C[id.x];
+        }
+    `;
+
+    // Execute
+    log(`Executing ${DISPATCHES} dispatches of chipfiring on the GPU...`);
+    const module_1 = device.createShaderModule({code: stage_1});
+    const module_2 = device.createShaderModule({code: stage_2});
+    const pipeline_1 = device.createComputePipeline({
+        layout: "auto",
+        compute: { module: module_1, entryPoint: "main" }
+    });
+    const pipeline_2 = device.createComputePipeline({
+        layout: "auto",
+        compute: { module: module_2, entryPoint: "main" }
+    });
+    const bindgroup_1 = device.createBindGroup({
+        layout: pipeline_1.getBindGroupLayout(0),
+        entries: [
+            { binding: 0, resource: { buffer: VALUE_Buffer } },
+            { binding: 1, resource: { buffer: EDGE_Buffer } },
+            { binding: 2, resource: { buffer: DEG_Buffer } },
+            { binding: 3, resource: { buffer: CANVAS_Buffer } },
+        ]
+    });
+    const bindgroup_2 = device.createBindGroup({
+        layout: pipeline_2.getBindGroupLayout(0),
+        entries: [
+            { binding: 0, resource: { buffer: VALUE_Buffer } },
+            { binding: 1, resource: { buffer: CANVAS_Buffer } },
+        ]
+    });
+    {
+        const encoder = device.createCommandEncoder();
+        for (let i = 0; i < DISPATCHES; i++) {
+            {
+                const pass = encoder.beginComputePass();
+                pass.setPipeline(pipeline_1);
+                pass.setBindGroup(0, bindgroup_1);
+                if (i == 0) pass.writeTimestamp(querySet, 0);
+                pass.dispatchWorkgroups(n);
+                pass.end();
+            }
+            {
+                const pass = encoder.beginComputePass();
+                pass.setPipeline(pipeline_2);
+                pass.setBindGroup(0, bindgroup_2);
+                pass.dispatchWorkgroups(n);
+                if (i == DISPATCHES - 1) pass.writeTimestamp(querySet, 1);
+                pass.end();
+            }
+        }
+        encoder.resolveQuerySet(querySet, 0, 2, resolveBuffer, 0);
+        encoder.copyBufferToBuffer(resolveBuffer, 0, timestampReadBuffer, 0, 16);
+        encoder.copyBufferToBuffer(CANVAS_Buffer, 0, READ_Buffer, 0, RESULT.byteLength);
+        device.queue.submit([encoder.finish()]);
+        await device.queue.onSubmittedWorkDone();
+    }
+    await READ_Buffer.mapAsync(GPUMapMode.READ);
+    RESULT.set(new Int32Array(READ_Buffer.getMappedRange()));
+    READ_Buffer.unmap();
+    log("Final chip configuration:");
+    log_matrix(Array.from(RESULT), M);
+    await timestampReadBuffer.mapAsync(GPUMapMode.READ);
+    const arrayBuffer = timestampReadBuffer.getMappedRange();
+    const ts = new BigUint64Array(arrayBuffer.slice(0));
+    const t0 = ts[0];
+    const t1 = ts[1];
+    timestampReadBuffer.unmap();
+    const timestampPeriod = (adapter.limits && adapter.limits.timestampPeriod) ? adapter.limits.timestampPeriod : (device.limits && device.limits.timestampPeriod) ? device.limits.timestampPeriod : 1;
+    const deltaTicks = Number(t1 - t0);
+    const elapsedMs = (deltaTicks * timestampPeriod) / 1e6;
+    VALUE_Buffer.destroy();
+    EDGE_Buffer.destroy();
+    DEG_Buffer.destroy();
+    CANVAS_Buffer.destroy();
+    READ_Buffer.destroy();
+    log(`GPU time for all dispatches: ${elapsedMs.toFixed(6)} ms (ticks=${deltaTicks}, period=${timestampPeriod} ns/tick)`);
+    return elapsedMs;
+}
+
+async function testsuite() {
+    hidelogs = false;
+    log("Starting test suite...");
+    const start = performance.now();
+    DISPATCHES = parseInt(document.getElementById('dispatchCount').value) || 0;
+    M = parseInt(document.getElementById('widthCount').value) || 0;
+    STACK = parseInt(document.getElementById('chipCount').value) || 0;
+    let start_M = parseInt(document.getElementById('widthCount').value) || 0;
+    let tl = parseInt(document.getElementById('loopCount').value) || 0;
+    let gm = parseInt(document.getElementById('gmCount').value) || 0;
+    let em = parseInt(document.getElementById('emCount').value) || 0;
+    let backuplog = logEl.textContent;
+    const laplace_results = [];
+    const brute_results = [];
+    hidelogs = true;
+    let pct = 0;
+    for (let i = 0; i < tl; i++) {
+        let lr = 0.0;
+        let br = 0.0;
+        M = start_M + (gm*i);
+        EDGERADIUS = 1 + (em*i);
+        for (let j = 0; j < averaging; j++) {
+            lr += await laplace();
+            br += await brute();
+        }
+        laplace_results.push({x:i, y:(lr/averaging)});
+        brute_results.push({x:i, y:(br/averaging)});
+        pct += 1;
+        setlog(backuplog + `TEST PROGRESS: ${100*(pct)/(tl)}%`);
+    }
+    hidelogs = false;
+    if (CHART) CHART.destroy();
+    CHART = new Chart(document.getElementById("myChart"), {
+      type: "scatter",
+      data: {
+        datasets: [
+          {
+            label: "Laplace Matrix",
+            data: laplace_results,
+            borderColor: "blue",
+            showLine: true,
+            tension: 0.2
+          },
+          {
+            label: "Adjacency List",
+            data: brute_results,
+            borderColor: "red",
+            showLine: true,
+            tension: 0.2
+          }
+        ]
+      },
+      options: {
+        scales: {
+          x: { type: "linear", position: "bottom" }
+        }
+      }
+    });
+    log(`Finished test suite in ${(performance.now() - start)/1000.0} seconds`);
+}
+
+document.getElementById('testBtn').addEventListener('click', async () => {
+    logEl.textContent = '';
+    await testsuite();
+});
+
+document.getElementById('runBtn').addEventListener('click', async () => {
+    logEl.textContent = '';
+    hidelogs = false;
+    DISPATCHES = parseInt(document.getElementById('dispatchCount').value) || 0;
+    M = parseInt(document.getElementById('widthCount').value) || 0;
+    STACK = parseInt(document.getElementById('chipCount').value) || 0;
+    await laplace();
+    log("\n");
+    await brute();
+});
+
+</script>
+</body>
+</html>

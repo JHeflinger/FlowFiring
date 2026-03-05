@@ -1,0 +1,560 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Chip Firing</title>
+  <style>
+    body { font-family: system-ui, sans-serif; padding: 24px; }
+    button { padding: 8px 12px; }
+    pre { background:#f6f8fa; padding:12px; border-radius:8px; overflow:auto; }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <h1>WebGPU Chip Firing</h1>
+  <p>This page runs a chip firing matrix multiplication on the GPU using WebGPU.</p>
+  <button id="runBtn">Fire Chips</button>
+  <input id="dispatchCount" type="number" min="1" max="1000000" value="10" style="margin-left:10px; width:80px;" />
+  <label for="dispatchCount" style="display: inline-block; width: 170px">Dispatches</label>
+  <input id="chipCount" type="number" min="1" max="1000000" value="100" style="margin-left:10px; width:80px;" />
+  <label for="chipCount" style="display: inline-block; width: 170px">Chips</label>
+  <input id="widthCount" type="number" min="1" max="1000000" value="10" style="margin-left:10px; width:80px;" />
+  <label for="widthCount" style="display: inline-block; width: 170px">Graph Width</label>
+  <br><br>
+  <button id="testBtn">Run Tests</button>
+  <input id="loopCount" type="number" min="1" max="1000000" value="10" style="margin-left:10px; width:80px;" />
+  <label for="loopCount" style="display: inline-block; width: 170px">Test Loops</label>
+  <input id="gmCount" type="number" min="1" max="1000000" value="0" style="margin-left:10px; width:80px;" />
+  <label for="gmCount" style="display: inline-block; width: 170px">Graph Multiplier</label>
+  <div id="out"></div>
+  <pre id="log"></pre>
+  <canvas id="myChart" width="400" height="400"></canvas>
+<script type="module">
+
+let hidelogs = false;
+const logEl = document.getElementById('log');
+function log(...args) { console.log(args.join(' ')); if (!hidelogs) logEl.textContent += args.join(' ') + '\n'; }
+function setlog(...args) { logEl.textContent = args.join(' ') + '\n'; }
+let DISPATCHES = parseInt(document.getElementById('dispatchCount').value) || 0;
+let M = parseInt(document.getElementById('widthCount').value) || 0;
+let STACK = parseInt(document.getElementById('chipCount').value) || 0;
+let EDGERADIUS = 1;
+const MAX_EDGES = 4;
+let CHART;
+const averaging = 10;
+if (!navigator.gpu) {
+    log("WebGPU not supported in this browser.");
+}
+const adapter = await navigator.gpu.requestAdapter();
+if (!adapter.features.has("timestamp-query")) {
+    log("GPU time performance features not supported on this machine.");
+}
+const device = await adapter.requestDevice({
+    requiredFeatures: ["timestamp-query", "chromium-experimental-timestamp-query-inside-passes"],
+    requiredLimits: {
+        maxStorageBufferBindingSize: adapter.limits.maxStorageBufferBindingSize,
+    }
+});
+const querySet = device.createQuerySet({
+    type: "timestamp",
+    count: 2
+});
+const resolveBuffer = device.createBuffer({
+    size: 16,
+    usage: GPUBufferUsage.QUERY_RESOLVE | GPUBufferUsage.COPY_SRC
+});
+const timestampReadBuffer = device.createBuffer({
+    size: 16,
+    usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST
+});
+
+function log_matrix(m, size) {
+    for (let i = 0; i < size; i++) {
+        let p = "  [";
+        for (let j = 0; j < size; j++) {
+            p += m[i*size + j];
+            if (j < size - 1) p += ", ";
+        }
+        log(p + "]");
+    }
+}
+
+function generate_EDGES(size) {
+    const t = new Int32Array(size*size*MAX_EDGES);
+    t.fill(-1);
+    for (let r = 0; r < size*size; r++) {
+        let ind = 0;
+        let x = r % (size);
+        let y = Math.floor(r/(size));
+        for (let i = 0; i < EDGERADIUS * 2 + 1; i++) {
+            for (let j = 0; j < EDGERADIUS * 2 + 1; j++) {
+                let superx = x - i + EDGERADIUS;
+                let supery = y - j + EDGERADIUS;
+                if (superx == x && supery == y) continue;
+                let dx = x - superx;
+                let dy = y - supery;
+                let dist = Math.sqrt(dx*dx + dy*dy);
+                if (superx >= 0 && supery >= 0 && superx < size && supery < size && dist <= EDGERADIUS) {
+                    t[r*MAX_EDGES + ind] = supery*size + superx;
+                    ind++;
+                }
+            }
+        }
+    }
+    return t;
+}
+
+function flatten_DEG(size) {
+    const t = new Int32Array(size*size);
+    for (let r = 0; r < size; r++) {
+        for (let c = 0; c < size; c++) {
+            let s = 0;
+            if (c > 0) s++;
+            if (r > 0) s++;
+            if (r < size - 1) s++;
+            if (c < size - 1) s++;
+            t[r*size + c] = s;
+        }
+    }
+    return t;
+}
+
+function generate_values(size, stack) {
+    const t = new Int32Array(size*size);
+    t[Math.floor(size/2)*size + Math.floor(size/2)] = stack;
+    return t;
+}
+
+async function fire() {
+    let newversion = true;
+
+    log("Running compress implementation...");
+
+    // setting up data
+    log("Generating compressed structure...");
+    const VALUES = generate_values(M, STACK);
+    const DEG = flatten_DEG(M);
+    const EDGES = generate_EDGES(M);
+    const EDGEPOOL = new Int32Array(M*M*MAX_EDGES);
+    const n = M*M;
+    const CANVAS = new Int32Array(n);
+    const RESULT = new Int32Array(n);
+    // log("Initial chip configuration:");
+    // log_matrix(Array.from(VALUES), M);
+    const max_workgroups = device.limits.maxComputeWorkgroupSizeX;
+    const max_dispatches = device.limits.maxComputeWorkgroupsPerDimension;
+    log(`Maximum storage buffer size has been detected to be ${adapter.limits.maxStorageBufferBindingSize} bytes`);
+    log(`Maximum workgroup size was detected to be ${max_workgroups} jobs`)
+    log(`Maximum dispatch size was detected to be ${max_dispatches} workgroups`)
+    const min_calls_by_size = Math.ceil((EDGES.byteLength) / adapter.limits.maxStorageBufferBindingSize);
+    const min_calls_by_wg_count = Math.ceil(n/(max_dispatches*max_workgroups));
+    log(`There must be a minimum of at least ${min_calls_by_size} serial calls due to size restrictions`);
+    log(`There must be a minimum of at least ${min_calls_by_wg_count} serial calls due to workgroup restrictions`);
+    const minimum_calls = min_calls_by_size > min_calls_by_wg_count ? min_calls_by_size : min_calls_by_wg_count;
+    log(`Thus, parallel calls will be limited to at least ${minimum_calls} serial calls`);
+    log(`Spliting up graph data across ${minimum_calls} serial jobs`);
+    const invocation_size = Math.ceil(n/minimum_calls);
+    const dispatch_size = Math.ceil(invocation_size/max_workgroups);
+    log(`Dispatch call will be set to ${dispatch_size} invocations`);
+
+    // shader code
+    const stage_0 = /*wgsl*/`
+        @group(0) @binding(0) var<storage, read> V : array<i32>;
+        @group(0) @binding(1) var<storage, read> E : array<i32>;
+        @group(0) @binding(2) var<storage, read_write> P : array<i32>;
+        const N : u32 = ${invocation_size}u;
+
+        @compute @workgroup_size(${max_workgroups})
+        fn main(@builtin(global_invocation_id) id : vec3<u32>) {
+            let i = id.x;
+            if (i >= N) { return; }
+            for (var j : u32 = 0u; j < ${MAX_EDGES}; j = j + 1u) {
+                var ind : i32 = E[i * ${MAX_EDGES} + j];
+                P[i * ${MAX_EDGES} + j] = V[ind];
+            }
+        }
+    `;
+    
+    const stage_1 = /*wgsl*/`
+        @group(0) @binding(0) var<storage, read> V : array<i32>;
+        @group(0) @binding(1) var<storage, read> E : array<i32>;
+        @group(0) @binding(2) var<storage, read> P : array<i32>;
+        @group(0) @binding(3) var<storage, read> D : array<i32>;
+        @group(0) @binding(4) var<storage, read_write> C : array<i32>;
+        const N : u32 = ${invocation_size}u;
+
+        @compute @workgroup_size(${max_workgroups})
+        fn main(@builtin(global_invocation_id) id : vec3<u32>) {
+            let i = id.x;
+            if (i >= N) { return; }
+            var sum : i32 = V[i];
+            if (sum >= D[i]) {
+                sum = sum - D[i];
+            }
+            for (var j : u32 = 0u; j < ${MAX_EDGES}; j = j + 1u) {
+                var eind : u32 = i * ${MAX_EDGES} + j;
+                var ind : i32 = E[eind];
+                if (ind < 0) { break; }
+                if (P[eind] >= D[ind]) { sum = sum + 1; }
+            }
+            C[i] = sum;
+        }
+    `;
+
+    const stage_2 = /*wgsl*/`
+        @group(0) @binding(0) var<storage, read_write> V : array<i32>;
+        @group(0) @binding(1) var<storage, read> C : array<i32>;
+        const N : u32 = ${invocation_size}u;
+
+        @compute @workgroup_size(${max_workgroups})
+        fn main(@builtin(global_invocation_id) id : vec3<u32>) {
+            let i = id.x;
+            if (i >= N) { return; }
+            V[i] = C[i];
+        }
+    `;
+
+    // pipelines and modules
+    const module_0 = device.createShaderModule({code: stage_0});
+    const module_1 = device.createShaderModule({code: stage_1});
+    const module_2 = device.createShaderModule({code: stage_2});
+    const pipeline_0 = device.createComputePipeline({
+        layout: "auto",
+        compute: { module: module_0, entryPoint: "main" }
+    });
+    const pipeline_1 = device.createComputePipeline({
+        layout: "auto",
+        compute: { module: module_1, entryPoint: "main" }
+    });
+    const pipeline_2 = device.createComputePipeline({
+        layout: "auto",
+        compute: { module: module_2, entryPoint: "main" }
+    });
+
+	if (newversion) {
+        // buffer setup
+        const VALUE_Buffers = [];
+        const EDGE_Buffers = [];
+        const DEG_Buffers = [];
+        const CANVAS_Buffers = [];
+        const READ_Buffers = [];
+        const POOL_Buffers = [];
+        for (let i = 0; i < minimum_calls; i++) {
+            VALUE_Buffers.push(device.createBuffer({
+                size: Math.ceil(VALUES.length / minimum_calls) * VALUES.BYTES_PER_ELEMENT,
+                usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC
+            }));
+            EDGE_Buffers.push(device.createBuffer({
+                size: Math.ceil(EDGES.length / minimum_calls) * EDGES.BYTES_PER_ELEMENT,
+                usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
+            }));
+            DEG_Buffers.push(device.createBuffer({
+                size: Math.ceil(DEG.length / minimum_calls) * DEG.BYTES_PER_ELEMENT,
+                usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
+            }));
+            CANVAS_Buffers.push(device.createBuffer({
+                size: Math.ceil(CANVAS.length / minimum_calls) * CANVAS.BYTES_PER_ELEMENT,
+                usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC
+            }));
+            READ_Buffers.push(device.createBuffer({
+                size: Math.ceil(CANVAS.length / minimum_calls) * CANVAS.BYTES_PER_ELEMENT,
+                usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
+            }));
+            POOL_Buffers.push(device.createBuffer({
+                size: Math.ceil(EDGEPOOL.length / minimum_calls) * EDGEPOOL.BYTES_PER_ELEMENT,
+                usage: GPUBufferUsage.STORAGE
+            }));
+            const values_stride = Math.ceil(VALUES.length / minimum_calls);
+            const edges_stride = Math.ceil(EDGES.length / minimum_calls);
+            const deg_stride = Math.ceil(DEG.length / minimum_calls);
+            device.queue.writeBuffer(
+                VALUE_Buffers[i], 0, VALUES, 
+                values_stride*i,
+                VALUES.length  - values_stride*i < values_stride ? VALUES.length - values_stride*i : values_stride);
+            device.queue.writeBuffer(
+                EDGE_Buffers[i], 0, EDGES,
+                edges_stride*i,
+                EDGES.length  - edges_stride*i < edges_stride ? EDGES.length - edges_stride*i : edges_stride);
+            device.queue.writeBuffer(
+                DEG_Buffers[i], 0, DEG,
+                deg_stride*i,
+                DEG.length  - deg_stride*i < deg_stride ? DEG.length - deg_stride*i : deg_stride);
+        }
+
+        // bindgroups
+        const bindgroups_0 = [];
+        const bindgroups_1 = [];
+        const bindgroups_2 = [];
+        for (let i = 0; i < minimum_calls; i++) {
+            bindgroups_0.push(device.createBindGroup({
+                layout: pipeline_0.getBindGroupLayout(0),
+                entries: [
+                    { binding: 0, resource: { buffer: VALUE_Buffers[i] } },
+                    { binding: 1, resource: { buffer: EDGE_Buffers[i] } },
+                    { binding: 2, resource: { buffer: POOL_Buffers[i] } },
+                ]
+            }));
+            bindgroups_1.push(device.createBindGroup({
+                layout: pipeline_1.getBindGroupLayout(0),
+                entries: [
+                    { binding: 0, resource: { buffer: VALUE_Buffers[i] } },
+                    { binding: 1, resource: { buffer: EDGE_Buffers[i] } },
+                    { binding: 2, resource: { buffer: POOL_Buffers[i] } },
+                    { binding: 3, resource: { buffer: DEG_Buffers[i] } },
+                    { binding: 4, resource: { buffer: CANVAS_Buffers[i] } },
+                ]
+            }));
+            bindgroups_2.push(device.createBindGroup({
+                layout: pipeline_2.getBindGroupLayout(0),
+                entries: [
+                    { binding: 0, resource: { buffer: VALUE_Buffers[i] } },
+                    { binding: 1, resource: { buffer: CANVAS_Buffers[i] } },
+                ]
+            }));
+        }
+
+        // execution
+        log(`Executing ${DISPATCHES} dispatches of chipfiring on the GPU...`);
+		const encoder = device.createCommandEncoder();
+		for (let i = 0; i < DISPATCHES; i++) {
+			for (let j = 0; j < minimum_calls; j++) {
+				{
+					const pass = encoder.beginComputePass();
+					pass.setPipeline(pipeline_0);
+					pass.setBindGroup(0, bindgroups_0[j]);
+					if (i == 0) pass.writeTimestamp(querySet, 0);
+					pass.dispatchWorkgroups(dispatch_size);
+					pass.end();
+				}
+				{
+					const pass = encoder.beginComputePass();
+					pass.setPipeline(pipeline_1);
+					pass.setBindGroup(0, bindgroups_1[j]);
+					pass.dispatchWorkgroups(dispatch_size);
+					pass.end();
+				}
+				{
+					const pass = encoder.beginComputePass();
+					pass.setPipeline(pipeline_2);
+					pass.setBindGroup(0, bindgroups_2[j]);
+					if (i == DISPATCHES - 1) pass.writeTimestamp(querySet, 1);
+					pass.dispatchWorkgroups(dispatch_size);
+					pass.end();
+				}
+			}
+		}
+
+        // clean and prepare results
+        encoder.resolveQuerySet(querySet, 0, 2, resolveBuffer, 0);
+        encoder.copyBufferToBuffer(resolveBuffer, 0, timestampReadBuffer, 0, 16);
+		for (let i = 0; i < minimum_calls; i++) {
+			encoder.copyBufferToBuffer(CANVAS_Buffers[i], 0, READ_Buffers[i], 0, CANVAS_Buffers[i].size);
+		}
+        device.queue.submit([encoder.finish()]);
+        await device.queue.onSubmittedWorkDone();
+		//await READ_Buffer.mapAsync(GPUMapMode.READ);
+		//RESULT.set(new Int32Array(READ_Buffer.getMappedRange()));
+		//READ_Buffer.unmap();
+		//log("Final chip configuration:");
+		//log_matrix(Array.from(RESULT), M);
+		await timestampReadBuffer.mapAsync(GPUMapMode.READ);
+		const arrayBuffer = timestampReadBuffer.getMappedRange();
+		const ts = new BigUint64Array(arrayBuffer.slice(0));
+		const t0 = ts[0];
+		const t1 = ts[1];
+		timestampReadBuffer.unmap();
+		const timestampPeriod = (adapter.limits && adapter.limits.timestampPeriod) ? adapter.limits.timestampPeriod : (device.limits && device.limits.timestampPeriod) ? device.limits.timestampPeriod : 1;
+		const deltaTicks = Number(t1 - t0);
+		const elapsedMs = (deltaTicks * timestampPeriod) / 1e6;
+        for (let i = 0; i < minimum_calls; i++) {
+            VALUE_Buffers[i].destroy();
+            EDGE_Buffers[i].destroy();
+            DEG_Buffers[i].destroy();
+            CANVAS_Buffers[i].destroy();
+            READ_Buffers[i].destroy();
+        }
+		log(`GPU time for all dispatches: ${elapsedMs.toFixed(6)} ms (ticks=${deltaTicks}, period=${timestampPeriod} ns/tick)`);
+		return elapsedMs;
+	}
+
+    if (!newversion) {
+        // buffer creation
+        const VALUE_Buffer = device.createBuffer({
+            size: VALUES.byteLength,
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC
+        });
+        const EDGE_Buffer = device.createBuffer({
+            size: EDGES.byteLength,
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
+        });
+        const DEG_Buffer = device.createBuffer({
+            size: DEG.byteLength,
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
+        });
+        const CANVAS_Buffer = device.createBuffer({
+            size: CANVAS.byteLength,
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC
+        });
+        const READ_Buffer = device.createBuffer({
+            size: CANVAS.byteLength,
+            usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
+        });
+        const POOL_Buffer = device.createBuffer({
+            size: EDGEPOOL.byteLength,
+                usage: GPUBufferUsage.STORAGE
+        });
+        device.queue.writeBuffer(VALUE_Buffer, 0, VALUES);
+        device.queue.writeBuffer(EDGE_Buffer, 0, EDGES);
+        device.queue.writeBuffer(DEG_Buffer, 0, DEG);
+
+        // bindgroups
+        const bindgroup_0 = device.createBindGroup({
+            layout: pipeline_0.getBindGroupLayout(0),
+            entries: [
+                { binding: 0, resource: { buffer: VALUE_Buffer } },
+                { binding: 1, resource: { buffer: EDGE_Buffer } },
+                { binding: 2, resource: { buffer: POOL_Buffer } },
+            ]
+        });
+        const bindgroup_1 = device.createBindGroup({
+            layout: pipeline_1.getBindGroupLayout(0),
+            entries: [
+                { binding: 0, resource: { buffer: VALUE_Buffer } },
+                { binding: 1, resource: { buffer: EDGE_Buffer } },
+                { binding: 2, resource: { buffer: POOL_Buffer } },
+                { binding: 3, resource: { buffer: DEG_Buffer } },
+                { binding: 4, resource: { buffer: CANVAS_Buffer } },
+            ]
+        });
+        const bindgroup_2 = device.createBindGroup({
+            layout: pipeline_2.getBindGroupLayout(0),
+            entries: [
+                { binding: 0, resource: { buffer: VALUE_Buffer } },
+                { binding: 1, resource: { buffer: CANVAS_Buffer } },
+            ]
+        });
+
+        // execution
+        log(`Executing ${DISPATCHES} dispatches of chipfiring on the GPU...`);
+        const encoder = device.createCommandEncoder();
+        for (let i = 0; i < DISPATCHES; i++) {
+            {
+                const pass = encoder.beginComputePass();
+                pass.setPipeline(pipeline_0);
+                pass.setBindGroup(0, bindgroup_0);
+                if (i == 0) pass.writeTimestamp(querySet, 0);
+                pass.dispatchWorkgroups(dispatch_size);
+                pass.end();
+            }
+            {
+                const pass = encoder.beginComputePass();
+                pass.setPipeline(pipeline_1);
+                pass.setBindGroup(0, bindgroup_1);
+                pass.dispatchWorkgroups(dispatch_size);
+                pass.end();
+            }
+            {
+                const pass = encoder.beginComputePass();
+                pass.setPipeline(pipeline_2);
+                pass.setBindGroup(0, bindgroup_2);
+                pass.dispatchWorkgroups(dispatch_size);
+                if (i == DISPATCHES - 1) pass.writeTimestamp(querySet, 1);
+                pass.end();
+            }
+        }
+        encoder.resolveQuerySet(querySet, 0, 2, resolveBuffer, 0);
+        encoder.copyBufferToBuffer(resolveBuffer, 0, timestampReadBuffer, 0, 16);
+        encoder.copyBufferToBuffer(CANVAS_Buffer, 0, READ_Buffer, 0, RESULT.byteLength);
+        device.queue.submit([encoder.finish()]);
+        await device.queue.onSubmittedWorkDone();
+		await READ_Buffer.mapAsync(GPUMapMode.READ);
+		RESULT.set(new Int32Array(READ_Buffer.getMappedRange()));
+		READ_Buffer.unmap();
+		log("Final chip configuration:");
+		//log_matrix(Array.from(RESULT), M);
+		await timestampReadBuffer.mapAsync(GPUMapMode.READ);
+		const arrayBuffer = timestampReadBuffer.getMappedRange();
+		const ts = new BigUint64Array(arrayBuffer.slice(0));
+		const t0 = ts[0];
+		const t1 = ts[1];
+		timestampReadBuffer.unmap();
+		const timestampPeriod = (adapter.limits && adapter.limits.timestampPeriod) ? adapter.limits.timestampPeriod : (device.limits && device.limits.timestampPeriod) ? device.limits.timestampPeriod : 1;
+		const deltaTicks = Number(t1 - t0);
+		const elapsedMs = (deltaTicks * timestampPeriod) / 1e6;
+		VALUE_Buffer.destroy();
+		EDGE_Buffer.destroy();
+		DEG_Buffer.destroy();
+		CANVAS_Buffer.destroy();
+		READ_Buffer.destroy();
+		log(`GPU time for all dispatches: ${elapsedMs.toFixed(6)} ms (ticks=${deltaTicks}, period=${timestampPeriod} ns/tick)`);
+		return elapsedMs;
+	}
+}
+
+async function testsuite() {
+    hidelogs = false;
+    log("Starting test suite...");
+    const start = performance.now();
+    DISPATCHES = parseInt(document.getElementById('dispatchCount').value) || 0;
+    M = parseInt(document.getElementById('widthCount').value) || 0;
+    STACK = parseInt(document.getElementById('chipCount').value) || 0;
+    let start_M = parseInt(document.getElementById('widthCount').value) || 0;
+    let tl = parseInt(document.getElementById('loopCount').value) || 0;
+    let gm = parseInt(document.getElementById('gmCount').value) || 0;
+    let backuplog = logEl.textContent;
+    const fire_results = [];
+    hidelogs = true;
+    let pct = 0;
+    const avging = gm == 0 ? 1 : averaging;
+    for (let i = 0; i < tl; i++) {
+        let lr = 0.0;
+        let br = 0.0;
+        M = start_M + (gm*i);
+        for (let j = 0; j < avging; j++) {
+            br += await fire();
+        }
+        fire_results.push({x:i, y:(br/avging)});
+        pct += 1;
+        setlog(backuplog + `TEST PROGRESS: ${100*(pct)/(tl)}%`);
+    }
+    hidelogs = false;
+    if (CHART) CHART.destroy();
+    CHART = new Chart(document.getElementById("myChart"), {
+      type: "scatter",
+      data: {
+        datasets: [
+          {
+            label: "Adjacency List",
+            data: fire_results,
+            borderColor: "red",
+            showLine: true,
+            tension: 0.2
+          }
+        ]
+      },
+      options: {
+        scales: {
+          x: { type: "linear", position: "bottom" }
+        }
+      }
+    });
+    log(`Finished test suite in ${(performance.now() - start)/1000.0} seconds`);
+}
+
+document.getElementById('testBtn').addEventListener('click', async () => {
+    logEl.textContent = '';
+    await testsuite();
+});
+
+document.getElementById('runBtn').addEventListener('click', async () => {
+    logEl.textContent = '';
+    hidelogs = false;
+    DISPATCHES = parseInt(document.getElementById('dispatchCount').value) || 0;
+    M = parseInt(document.getElementById('widthCount').value) || 0;
+    STACK = parseInt(document.getElementById('chipCount').value) || 0;
+    await fire();
+});
+
+</script>
+</body>
+</html>
