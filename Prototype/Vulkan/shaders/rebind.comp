@@ -1,0 +1,44 @@
+#version 450
+
+struct BVHNode {
+    vec3 minBB;
+    vec3 maxBB;
+    uint left;
+    uint right; // 0xFFFFFFFF if leaf
+    uint parent;
+    uint counter;
+};
+
+layout(binding = 0) buffer BVHNodeSSBOIn {
+    BVHNode nodeIn[ ];
+};
+
+layout(push_constant) uniform PushConstants {
+    uint elements;
+    uint bitstart;
+} pc;
+
+layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+void main() {
+    uint id = gl_GlobalInvocationID.x;
+    if (id >= pc.elements) return;
+    uint nodeIndex = pc.elements - 1 + id;
+    while (nodeIndex != 0) {
+        uint parent = nodeIn[nodeIndex].parent;
+        uint old = atomicAdd(nodeIn[parent].counter, 1);
+        if (old == 0) return;
+        uint left = nodeIn[parent].left;
+        uint right = nodeIn[parent].right;
+        if (nodeIndex != left) while (nodeIn[right].counter != 3) {}
+        else while (nodeIn[left].counter != 3) {}
+        vec3 minA = nodeIn[left].minBB;
+        vec3 minB = nodeIn[right].minBB;
+        vec3 maxA = nodeIn[left].maxBB;
+        vec3 maxB = nodeIn[right].maxBB;
+        nodeIn[parent].minBB = min(minA, minB);
+        nodeIn[parent].maxBB = max(maxA, maxB);
+        atomicExchange(nodeIn[parent].counter, 3);
+        nodeIndex = parent;
+    }
+}

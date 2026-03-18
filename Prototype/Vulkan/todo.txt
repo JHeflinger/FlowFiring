@@ -1,0 +1,11 @@
+1. load toh - DONE
+2. select faces - DONE
+    2a. remove materials and normals
+3. mark hole
+4. select edges
+5. set edge values
+6. orthogonal camera
+------ clean -------
+7. cross sections
+8. simulate
+9. render heatmap

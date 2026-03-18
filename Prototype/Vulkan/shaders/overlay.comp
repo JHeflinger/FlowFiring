@@ -1,0 +1,178 @@
+#version 450
+
+#define NO_SELECT 0
+#define TRIANGLE_SELECT 1
+#define VERTEX_SELECT 2
+
+struct RayGenerator {
+    uint tid;
+    float distance;
+};
+
+layout(binding = 0) readonly buffer RayGeneratorSSBOIn {
+   RayGenerator raygenIn[ ];
+};
+
+layout(binding = 1, rgba8) uniform image2D outputImage;
+
+layout(binding = 2) uniform OverlayUniformBufferObject {
+	uint mouse_x;
+    uint mouse_y;
+	uint image_width;
+	uint image_height;
+	uint single_selected_tid;
+    uint single_selected_vid;
+    uint divisor;
+    uint mode;
+} o_ubo;
+
+layout(binding = 3) uniform GeometryUniformBufferObject { 
+    vec3 minBB;
+    vec3 maxBB;
+} g_ubo;
+
+layout(binding = 4) buffer OverlaySSBO {
+	uint hovered_tid;
+    vec2 vertex_position;
+    vec2 selected_vertex_position;
+};
+
+layout(binding = 5) readonly buffer VertexSSBOIn {
+    vec4 vertexIn[ ];
+};
+
+layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+const float vhighlight_radius = 50.0;
+const float mixfactor = 0.2;
+vec4 highlight_color;
+vec4 lock_color;
+
+void calculate_highlight_color() {
+    float divisor = float(o_ubo.divisor) * (1.0 - mixfactor);
+    highlight_color = vec4(1.0, 0.52, 0.0, 1.0) / divisor;
+    lock_color = vec4(0.9, 0.12, 0.05, 1.0) / divisor;
+}
+
+void highlight_triangle(uint htid) {
+	int rx = int(gl_GlobalInvocationID.x%o_ubo.image_width);
+    int ry = int(gl_GlobalInvocationID.x/o_ubo.image_width);
+    if (htid != -1 && raygenIn[gl_GlobalInvocationID.x].tid == htid) {
+        int radius = 2;
+		int minx = 0;
+		int miny = 0;
+		int maxx = rx;
+		int maxy = ry;
+		if (rx > radius) minx = rx - radius;
+		if (ry > radius) miny = ry - radius;
+		if (maxx + radius < o_ubo.image_width) maxx += radius;
+		if (maxy + radius < o_ubo.image_height) maxy += radius;
+		bool border = false;
+		for (int x = minx; x < maxx; x++) {
+			for (int y = miny; y < maxy; y++) {
+				RayGenerator rg = raygenIn[y*o_ubo.image_width + x];
+				if (rg.tid != htid) {
+					border = true;
+				}
+			}
+		}
+		if (border) {
+			imageStore(outputImage, ivec2(rx, ry), highlight_color);
+		} else {
+			vec4 oldc = imageLoad(outputImage, ivec2(rx, ry));
+			imageStore(outputImage, ivec2(rx, ry), mix(oldc, highlight_color, mixfactor));
+		}
+    }
+}
+
+void highlight_vertex(uint hvid, vec2 vpos) {
+    if (hvid != -1) {
+	    int rx = int(gl_GlobalInvocationID.x%o_ubo.image_width);
+        int ry = int(gl_GlobalInvocationID.x/o_ubo.image_width);
+        vec4 color = highlight_color;
+        if (vertexIn[hvid].w != 0) color = lock_color;
+        if (length(vec2(rx, ry) - vpos) < 3.0) {
+			imageStore(outputImage, ivec2(rx, ry), color);
+        }
+    }
+}
+
+void outline_triangle() {
+	int rx = int(gl_GlobalInvocationID.x%o_ubo.image_width);
+    int ry = int(gl_GlobalInvocationID.x/o_ubo.image_width);
+    uint tid = raygenIn[gl_GlobalInvocationID.x].tid;
+    float d = raygenIn[gl_GlobalInvocationID.x].distance / length(g_ubo.maxBB - g_ubo.minBB);
+    if (tid != -1) {
+        int radius = 1;
+        int minx = 0;
+        int miny = 0;
+        int maxx = rx;
+        int maxy = ry;
+        if (rx > radius) minx = rx - radius;
+		if (ry > radius) miny = ry - radius;
+		if (maxx + radius < o_ubo.image_width) maxx += radius;
+		if (maxy + radius < o_ubo.image_height) maxy += radius;
+		bool border = false;
+		for (int x = minx; x < maxx; x++) {
+			for (int y = miny; y < maxy; y++) {
+				RayGenerator rg = raygenIn[y*o_ubo.image_width + x];
+				if (rg.tid != tid) {
+					border = true;
+				}
+			}
+		}
+		if (border) {
+			vec4 oldc = imageLoad(outputImage, ivec2(rx, ry));
+            vec4 newc = vec4(0.1, 0.1, 0.1, 1.0);
+            float vdist = vhighlight_radius;
+            vec3 mixc = vec3(0);
+            float vsum = 0;
+            if (o_ubo.single_selected_vid != -1) {
+                vdist = length(selected_vertex_position - vec2(rx, ry));
+                float swapdist = vhighlight_radius - vdist;
+                if (vdist < vhighlight_radius) {
+                    if (vertexIn[o_ubo.single_selected_vid].w != 0) {
+                        mixc += swapdist * vec3(lock_color);
+                    } else {
+                        mixc += swapdist * vec3(highlight_color);
+                    }
+                    vsum += swapdist;
+                }
+            }
+            if (o_ubo.mode == VERTEX_SELECT && hovered_tid != o_ubo.single_selected_vid && hovered_tid != -1) {
+                float olddist = vdist;
+                vdist = length(vertex_position - vec2(rx, ry));
+                float swapdist = vhighlight_radius - vdist;
+                if (vdist < vhighlight_radius) {
+                    if (vertexIn[hovered_tid].w != 0) {
+                        mixc += swapdist * vec3(lock_color);
+                    } else {
+                        mixc += swapdist * vec3(highlight_color);
+                    }
+                    vsum += swapdist;
+                }
+                vdist = min(vdist, olddist);
+            }
+            if (vdist < vhighlight_radius) {
+                float mixing = 1.0 - (vdist / vhighlight_radius);
+                mixing = mixing*mixing*mixing;
+                newc = mix(newc, vec4(mixc / vsum, 1.0), mixing);
+            }
+			imageStore(outputImage, ivec2(rx, ry), mix(oldc, newc, min(1.0 / d, 1.0)));
+        }
+    }
+}
+
+void main() {
+    calculate_highlight_color();
+    if (o_ubo.divisor == 1.0)
+        outline_triangle();
+    if (o_ubo.mode == TRIANGLE_SELECT)
+        highlight_triangle(hovered_tid);
+    else if (o_ubo.mode == VERTEX_SELECT)
+        highlight_vertex(hovered_tid, vertex_position);
+	if (o_ubo.mode != TRIANGLE_SELECT || hovered_tid != o_ubo.single_selected_tid)
+		highlight_triangle(o_ubo.single_selected_tid);
+	if (o_ubo.mode != VERTEX_SELECT || hovered_tid != o_ubo.single_selected_vid)
+		highlight_vertex(o_ubo.single_selected_vid, selected_vertex_position);
+}

@@ -1,0 +1,3 @@
+[submodule "Prototype/Vulkan/vendor/EasyC"]
+	path = Prototype/Vulkan/vendor/EasyC
+	url = https://github.com/JHeflinger/EasyC.git
