@@ -26,3 +26,5 @@ LIB vendor/raylib/lib
 WINDOWS LIB platform/windows/vulkan/libs
 WINDOWS LIB platform/windows/GLFW
 SOURCE vendor/EasyC/include
+FLAG audit
+FLAG fast
