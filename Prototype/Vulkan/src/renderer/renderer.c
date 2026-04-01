@@ -45,6 +45,7 @@ void InitializeRenderer() {
     g_renderer.config.orthogonal = FALSE;
     g_renderer.config.depth = 0.0f;
     g_renderer.config.edgemode = FALSE;
+    g_renderer.config.simulate = FALSE;
 
     // initialize min/max BB
     SETVEC3(g_renderer.geometry.bounds.min, FLT_MAX, FLT_MAX, FLT_MAX);
@@ -389,7 +390,7 @@ void PrimeEdges() {
     }
     size_t totalsize = groups[0].size + groups[1].size + groups[2].size + groups[3].size;
     EZ_ASSERT(totalsize == g_renderer.geometry.edges.size, "Groups were not uniquely constructed");
-    for (size_t i = 0; i < 3; i++) g_renderer.geometry.offsets[i] = groups[i].size;
+    for (size_t i = 0; i < 4; i++) g_renderer.geometry.offsets[i] = groups[i].size;
     size_t backoff = 0;
     size_t currgroup = 0;
     size_t mapsize = g_renderer.geometry.emap.size;

@@ -1,0 +1,54 @@
+#version 450
+
+struct Edge {
+    uint a;
+    uint b;
+    uint f1e1;
+    uint f1e2;
+    uint f2e1;
+    uint f2e2;
+    uint f3e1;
+    uint f3e2;
+    uint f4e1;
+    uint f4e2;
+    int flow;
+};
+
+layout(binding = 0) buffer EdgeSSBOIn {
+    Edge edgeIn[ ];
+};
+
+layout(push_constant) uniform PushConstants {
+    uint elements; // this is our group offset start
+    uint bitstart;
+} pc;
+
+layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+void applyflow(uint edge, uint a, uint b) { // TODO: branch optimize later, good for readability now
+    Edge e = edgeIn[edge];
+    if (e.a == a || e.b == a) { // flow is coming out positive
+        if (e.a == a) { // flow is entering positive (contradictory flow)
+            atomicAdd(edgeIn[edge].flow, -1);
+        } else { // flow is entering negative (parallel flow)
+            atomicAdd(edgeIn[edge].flow, 1);
+        }
+    } else { // flow is coming out negative
+        if (e.b == b) { // flow is entering negative (contradictory flow)
+            atomicAdd(edgeIn[edge].flow, -1);
+        } else { // flow is entering positive (parallel flow)
+            atomicAdd(edgeIn[edge].flow, 1);
+        }
+    }
+}
+
+void main() {
+    uint eid = gl_GlobalInvocationID.x + pc.elements;
+    Edge e = edgeIn[eid];
+    if (abs(e.flow) > 4) { // TODO: should we count valid faces and then actually calculate the proper degree so borders are accounted for?
+        uint candidates[8] = { e.f1e1, e.f1e2, e.f2e1, e.f2e2, e.f3e1, e.f3e2, e.f4e1, e.f4e2 };
+        for (int i = 0; i < 8; i++) if (candidates[i] != -1) applyflow(candidates[i], e.a, e.b);
+        if (e.flow < 0) edgeIn[eid].flow = e.flow + 4; //TODO: same here as above todo
+        else edgeIn[eid].flow = e.flow - 4;
+    }
+}

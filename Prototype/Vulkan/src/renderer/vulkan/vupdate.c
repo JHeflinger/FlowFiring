@@ -49,6 +49,14 @@ void VUPDT_RecordCommand(VkCommandBuffer command) {
         g_vupdt_renderer_ref->config.flags &= ~(BVH_PIPELINE_FLAGS);
     }
 
+    size_t simulates = 0;
+    if (g_vupdt_renderer_ref->config.simulate) {
+        simulates = 4;
+        g_vupdt_renderer_ref->config.flags |= SIMULATE_PIPELINE_FLAGS;
+    } else {
+        g_vupdt_renderer_ref->config.flags &= ~(SIMULATE_PIPELINE_FLAGS);
+    }
+
     // execute shader stages
     uint32_t radix_bits = 0;
     #define _record_push_constants(elements) { \
@@ -61,6 +69,15 @@ void VUPDT_RecordCommand(VkCommandBuffer command) {
     for (size_t i = 0; i < g_vupdt_renderer_ref->vulkan.core.shaders.size; i++) {
         if (!(g_vupdt_renderer_ref->config.flags & (1u << i))) continue;
         uint32_t invocations = (uint32_t)g_vupdt_renderer_ref->dimensions.x * (uint32_t)g_vupdt_renderer_ref->dimensions.y;
+
+        if ((1u << i) & SIMULATE_SHADER_FLAG) {
+            size_t offset_index = 4 - simulates;
+            invocations = g_vupdt_renderer_ref->geometry.offsets[offset_index];
+            size_t start = 0;
+            for (size_t j = 0; j < offset_index; j++) start += g_vupdt_renderer_ref->geometry.offsets[j];
+            _record_push_constants(start);
+            simulates--;
+        }
 
         if (((1u << i) & CENTROID_SHADER_FLAG) ||
             ((1u << i) & HISTOGRAM_SHADER_FLAG) ||
@@ -108,6 +125,8 @@ void VUPDT_RecordCommand(VkCommandBuffer command) {
             radix_bits += 4;
             if (radix_bits < 32) i -= 3;
         }
+
+        if (simulates > 0) i--;
     }
 
     // Copy image to staging

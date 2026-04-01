@@ -10,6 +10,10 @@ Renderer* g_vinit_renderer_ref = NULL;
 BOOL VINIT_Shaders(ARRLIST_VulkanShaderPtr* shaders) {
 	ARRLIST_VulkanShaderPtr_add(shaders, GenerateShader(
         g_vinit_renderer_ref,
+        "shaders/simulate.comp",
+        "build/shaders/simulate.comp.spv"));
+	ARRLIST_VulkanShaderPtr_add(shaders, GenerateShader(
+        g_vinit_renderer_ref,
         "shaders/centroids.comp",
         "build/shaders/centroids.comp.spv"));
 	ARRLIST_VulkanShaderPtr_add(shaders, GenerateShader(

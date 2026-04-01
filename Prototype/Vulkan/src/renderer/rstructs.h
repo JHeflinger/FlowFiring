@@ -38,18 +38,20 @@ DECLARE_ARR_ARRLIST(vec4);
 DECLARE_ARR_ARRLIST(vec3);
 DECLARE_HASHMAP(Edge, size_t, EdgeMap);
 
-#define PREVIEW_PIPELINE_FLAGS   0b1111111111
-#define BVH_PIPELINE_FLAGS       0b0001111111
-#define CENTROID_SHADER_FLAG     0b1
-#define HISTOGRAM_SHADER_FLAG    0b10
-#define HISTORY_SHADER_FLAG      0b100
-#define SCATTER_SHADER_FLAG      0b1000
-#define LEAVES_SHADER_FLAG       0b10000
-#define BVH_SHADER_FLAG          0b100000
-#define REBIND_SHADER_FLAG       0b1000000
-#define DEFAULT_SHADER_FLAG      0b10000000
-#define ANALYZE_SHADER_FLAG      0b100000000
-#define OVERLAY_SHADER_FLAG      0b1000000000
+#define PREVIEW_PIPELINE_FLAGS   0b11111111110
+#define BVH_PIPELINE_FLAGS       0b00011111110
+#define SIMULATE_PIPELINE_FLAGS  0b00000000001
+#define SIMULATE_SHADER_FLAG     0b1
+#define CENTROID_SHADER_FLAG     0b10
+#define HISTOGRAM_SHADER_FLAG    0b100
+#define HISTORY_SHADER_FLAG      0b1000
+#define SCATTER_SHADER_FLAG      0b10000
+#define LEAVES_SHADER_FLAG       0b100000
+#define BVH_SHADER_FLAG          0b1000000
+#define REBIND_SHADER_FLAG       0b10000000
+#define DEFAULT_SHADER_FLAG      0b100000000
+#define ANALYZE_SHADER_FLAG      0b1000000000
+#define OVERLAY_SHADER_FLAG      0b10000000000
 
 typedef uint32_t PipelineFlags;
 
@@ -128,7 +130,7 @@ typedef struct {
     ARRLIST_Triangle triangles;
     HASHMAP_EdgeMap emap;
     ARRLIST_EdgeMeta edges;
-    uint32_t offsets[3];
+    uint32_t offsets[4];
     float lightarea;
     ChangeSet changes;
     AxisAlignedBoundingBox bounds;
@@ -139,6 +141,7 @@ typedef struct {
     BOOL async;
     BOOL orthogonal;
     BOOL edgemode;
+    BOOL simulate;
     float depth;
     PipelineFlags flags;
 } RendererConfig;

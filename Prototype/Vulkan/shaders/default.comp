@@ -4,6 +4,7 @@
 #define AO_DIST 0.5
 #define EPS 0.000001
 #define EDGE_RADIUS 0.05
+#define EDGE_COLOR_CUTOFF 10.0
 
 struct BVHNode {
     vec3 minBB;
@@ -28,6 +29,7 @@ struct Hit {
     float distance;
     vec3 normal;
     vec3 position;
+    float value;
 };
 
 struct Triangle {
@@ -99,6 +101,18 @@ vec3 fill_light = vec3(-0.440225, 0.17609, 0.880451);
 vec3 back_light = vec3(0, -0.447214, 0.894427);
 vec3 background_color = vec3(0.12);
 
+vec3 hsv2rgb(vec3 c) {
+    vec3 rgb = clamp(abs(mod(c.x * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0);
+    rgb = rgb * rgb * (3.0 - 2.0 * rgb);
+    return c.z * mix(vec3(1.0), rgb, c.y);
+}
+
+vec3 rainbow(float t) {
+    if (t == 1.0) return vec3(1.0);
+    t = clamp(t, 0.0, 1.0);
+    return hsv2rgb(vec3(t, 1.0, 1.0));
+}
+
 bool cut_viewport(int rx, int ry) {
     if (ubo.viewport.x != 0 &&
         (rx < ceil(((ubo.width - ubo.viewport.x) / 2.0)) ||
@@ -162,6 +176,7 @@ bool triangle_intersect(Ray ray, uint triangle_ind, inout Hit hit) {
 
 bool edge_intersect(Ray ray, uint edge_ind, inout Hit hit) {
     Edge edge = edgeIn[edge_ind];
+    if (edge.flow == 0) return false;
     vec3 pa = vertexIn[edge.a];
     vec3 pb = vertexIn[edge.b];
     vec3 ab = pb - pa;
@@ -187,6 +202,7 @@ bool edge_intersect(Ray ray, uint edge_ind, inout Hit hit) {
     hit.position = hit_pos;
     vec3 axis_point = pa + ab_n * proj;
     hit.normal = normalize(hit_pos - axis_point);
+    hit.value = min(abs(edge.flow) / EDGE_COLOR_CUTOFF, 1.0);
     return true;
 }
 
@@ -202,6 +218,7 @@ bool aabb_intersect(Ray ray, uint node_ind) {
 Hit trace(Ray ray, inout uint hit_id) {
     Hit hit;
     hit.distance = -1.0;
+    hit.value = 0.0;
     if (ubo.triangles == 0) return hit;
     uint stack[MAX_RECURSIVE_DEPTH];
     int stack_ptr = 0;
@@ -223,6 +240,7 @@ Hit trace(Ray ray, inout uint hit_id) {
             } else {
                 if (triangle_intersect(ray, node.left, _hit)) {
                     if (hit.distance == -1.0 || _hit.distance < hit.distance) {
+                        _hit.value = 1.0;
                         hit = _hit;
     					hit_id = node.left;
                     }
@@ -289,7 +307,7 @@ vec3 getcolor(vec2 ray_coordinate, inout uint hit_id, inout float hit_distance) 
         gridhit = true;
     }
     if (hit.distance > 0.0) {
-        color = shade(ray, hit, hit_id);
+        color = shade(ray, hit, hit_id) * rainbow(hit.value);
         if (gridhit) {
             color = mix(color, vec3(0.7), gridmix);
         }
