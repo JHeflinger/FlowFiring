@@ -4,10 +4,11 @@
 
 Renderer* g_overlay_renderer_ref = NULL;
 Rectangle g_viewport_dims = { 0 };
-OverlaySSBO g_exposed_overlay_ssbo = (OverlaySSBO){ (TriangleID)-1, { 0, 0 }, { 0, 0 } };
+OverlaySSBO g_exposed_overlay_ssbo = (OverlaySSBO){ (TriangleID)-1, (VertexID)-1, (VertexID)-1, { 0, 0 }, { 0, 0 } };
 TriangleID g_single_selected_triangle = -1;
 VertexID g_single_selected_vertex = -1;
 OverlayMode g_overlay_mode = NO_SELECT_MODE;
+Edge g_single_selected_edge = (Edge){ (VertexID)-1, (VertexID)-1 };
 
 void SelectNoneMode() {
     g_overlay_mode = NO_SELECT_MODE;
@@ -21,6 +22,10 @@ void SelectVertexMode() {
     g_overlay_mode = VERTEX_SELECT_MODE;
 }
 
+void SelectEdgeMode() {
+    g_overlay_mode = EDGE_SELECT_MODE;
+}
+
 void SetOverlayContext(Renderer* renderer) {
     g_overlay_renderer_ref = renderer;
     AddBind("no select mode", SelectNoneMode,
@@ -32,6 +37,9 @@ void SetOverlayContext(Renderer* renderer) {
     AddBind("vertex select mode", SelectVertexMode,
         (BindCommand){ IK_SELECT, BIND_KEY_DOWN },
         (BindCommand){ IK_SELECT_VERTEX, BIND_KEY_PRESSED });
+    AddBind("edge select mode", SelectEdgeMode,
+        (BindCommand){ IK_SELECT, BIND_KEY_DOWN },
+        (BindCommand){ IK_SELECT_EDGE, BIND_KEY_PRESSED });
 }
 
 void SetViewportRec(Rectangle rec) {
@@ -74,4 +82,18 @@ void SetSelectedVertex(VertexID vid) {
 
 VertexID GetSelectedVertex() {
     return g_single_selected_vertex;
+}
+
+Edge HoveredEdge() {
+    if (g_overlay_mode == EDGE_SELECT_MODE)
+        return (Edge){ g_exposed_overlay_ssbo.hovered_edge_v1, g_exposed_overlay_ssbo.hovered_edge_v2 };
+    return (Edge){(VertexID)-1, (VertexID)-1};
+}
+
+void SetSelectedEdge(Edge edge) {
+    g_single_selected_edge = edge;
+}
+
+Edge GetSelectedEdge() {
+    return g_single_selected_edge;
 }

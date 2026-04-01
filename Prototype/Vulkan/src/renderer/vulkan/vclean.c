@@ -13,10 +13,6 @@ void VCLEAN_Shaders(ARRLIST_VulkanShaderPtr* shaders) {
 	ARRLIST_VulkanShaderPtr_clear(shaders);
 }
 
-void VCLEAN_Lights(VulkanDataBuffer* lights) {
-    VUTIL_DestroyBuffer(*lights);
-}
-
 void VCLEAN_BVH(VulkanBVH* bvh) {
     VUTIL_DestroyBuffer(bvh->workhistory);
     VUTIL_DestroyBuffer(bvh->workoffsets);
@@ -29,10 +25,6 @@ void VCLEAN_BVH(VulkanBVH* bvh) {
     VUTIL_DestroyBuffer(bvh->buckets);
 }
 
-void VCLEAN_Normals(VulkanDataBuffer* normals) {
-    VUTIL_DestroyBuffer(*normals);
-}
-
 void VCLEAN_Vertices(VulkanDataBuffer* vertices) {
     VUTIL_DestroyBuffer(*vertices);
 }
@@ -41,22 +33,10 @@ void VCLEAN_Triangles(VulkanDataBuffer* triangles) {
     VUTIL_DestroyBuffer(*triangles);
 }
 
-void VCLEAN_Emissives(VulkanDataBuffer* emissives) {
-    VUTIL_DestroyBuffer(*emissives);
-}
-
-void VCLEAN_Materials(VulkanDataBuffer* materials) {
-    VUTIL_DestroyBuffer(*materials);
-}
-
 void VCLEAN_Geometry(VulkanGeometry* geometry) {
     VCLEAN_BVH(&(geometry->bvh));
-    VCLEAN_Normals(&(geometry->normals));
     VCLEAN_Vertices(&(geometry->vertices));
     VCLEAN_Triangles(&(geometry->triangles));
-    VCLEAN_Emissives(&(geometry->emissives));
-    VCLEAN_Materials(&(geometry->materials));
-    VCLEAN_Lights(&(geometry->lights));
 }
 
 void VCLEAN_Metadata(VulkanMetadata* metadata) {
@@ -98,9 +78,6 @@ void VCLEAN_RenderContext(VulkanRenderContext* context) {
         vkDestroyImageView(g_vclean_renderer_ref->vulkan.core.general.interface, context->targets[i].view, NULL);
         vkDestroyImage(g_vclean_renderer_ref->vulkan.core.general.interface, context->targets[i].image, NULL);
         vkFreeMemory(g_vclean_renderer_ref->vulkan.core.general.interface, context->targets[i].memory, NULL);
-        vkDestroyImageView(g_vclean_renderer_ref->vulkan.core.general.interface, context->hdr[i].view, NULL);
-        vkDestroyImage(g_vclean_renderer_ref->vulkan.core.general.interface, context->hdr[i].image, NULL);
-        vkFreeMemory(g_vclean_renderer_ref->vulkan.core.general.interface, context->hdr[i].memory, NULL);
     }
 
     VCLEAN_RenderData(&(context->renderdata));

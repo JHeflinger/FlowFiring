@@ -7,6 +7,7 @@ typedef enum {
     NO_SELECT_MODE = 0,
     TRIANGLE_SELECT_MODE = 1,
     VERTEX_SELECT_MODE = 2,
+    EDGE_SELECT_MODE = 3,
 } OverlayMode;
 
 void SetOverlayContext(Renderer* renderer);
@@ -30,5 +31,11 @@ VertexID HoveredVertex();
 void SetSelectedVertex(VertexID vid);
 
 VertexID GetSelectedVertex();
+
+Edge HoveredEdge();
+
+void SetSelectedEdge(Edge edge);
+
+Edge GetSelectedEdge();
 
 #endif

@@ -3,10 +3,24 @@
 #define NO_SELECT 0
 #define TRIANGLE_SELECT 1
 #define VERTEX_SELECT 2
+#define EDGE_SELECT 3
+#define EPS 0.000001
 
 struct RayGenerator {
     uint tid;
     float distance;
+};
+
+struct Triangle {
+    uint hole;
+    uint a;
+    uint b;
+    uint c;
+};
+
+struct Ray {
+    vec3 position;
+    vec3 direction;
 };
 
 layout(binding = 0) readonly buffer RayGeneratorSSBOIn {
@@ -22,7 +36,8 @@ layout(binding = 2) uniform OverlayUniformBufferObject {
 	uint image_height;
 	uint single_selected_tid;
     uint single_selected_vid;
-    uint divisor;
+    uint single_selected_edge_v1;
+    uint single_selected_edge_v2;
     uint mode;
 } o_ubo;
 
@@ -33,6 +48,8 @@ layout(binding = 3) uniform GeometryUniformBufferObject {
 
 layout(binding = 4) buffer OverlaySSBO {
 	uint hovered_tid;
+    uint hovered_edge_v1;
+    uint hovered_edge_v2;
     vec2 vertex_position;
     vec2 selected_vertex_position;
 };
@@ -40,6 +57,25 @@ layout(binding = 4) buffer OverlaySSBO {
 layout(binding = 5) readonly buffer VertexSSBOIn {
     vec4 vertexIn[ ];
 };
+
+layout(binding = 6) readonly buffer TriangleSSBOIn {
+    Triangle triangleIn[ ];
+};
+
+layout(binding = 7) uniform UniformBufferObject {
+    vec3 look;
+    vec3 position;
+    vec3 up;
+    vec3 u;
+    vec3 v;
+    vec3 w;
+    vec2 viewport;
+    uint triangles;
+    uint grid;
+    float fov;
+    float width;
+    float height;
+} ubo;
 
 layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 
@@ -49,14 +85,29 @@ vec4 highlight_color;
 vec4 lock_color;
 
 void calculate_highlight_color() {
-    float divisor = float(o_ubo.divisor) * (1.0 - mixfactor);
-    highlight_color = vec4(1.0, 0.52, 0.0, 1.0) / divisor;
-    lock_color = vec4(0.9, 0.12, 0.05, 1.0) / divisor;
+    highlight_color = vec4(1.0, 0.52, 0.0, 1.0);
+    lock_color = vec4(0.9, 0.12, 0.05, 1.0);
+}
+
+Ray create_ray(vec2 rg) {
+	float r = ubo.width / 2.0;
+	float b = ubo.height / 2.0;
+	float l = -1.0 * r;
+	float t = -1.0 * b;
+    float u = l + ((r - l) * (float(rg.x) + 0.5)) / ubo.width;
+    float v = b + ((t - b) * (float(rg.y) + 0.5)) / ubo.height;
+	float d = (cos(ubo.fov / 2.0) / sin(ubo.fov / 2.0)) * r;
+    Ray ray;
+    ray.direction = normalize((ubo.u * u) + (ubo.v * v) - (ubo.w * d));
+    ray.position = ubo.position;
+    return ray;
 }
 
 void highlight_triangle(uint htid) {
 	int rx = int(gl_GlobalInvocationID.x%o_ubo.image_width);
     int ry = int(gl_GlobalInvocationID.x/o_ubo.image_width);
+    vec4 hcolor = highlight_color;
+    if (triangleIn[htid].hole != 0) hcolor = lock_color;
     if (htid != -1 && raygenIn[gl_GlobalInvocationID.x].tid == htid) {
         int radius = 2;
 		int minx = 0;
@@ -77,10 +128,10 @@ void highlight_triangle(uint htid) {
 			}
 		}
 		if (border) {
-			imageStore(outputImage, ivec2(rx, ry), highlight_color);
+			imageStore(outputImage, ivec2(rx, ry), hcolor);
 		} else {
 			vec4 oldc = imageLoad(outputImage, ivec2(rx, ry));
-			imageStore(outputImage, ivec2(rx, ry), mix(oldc, highlight_color, mixfactor));
+			imageStore(outputImage, ivec2(rx, ry), mix(oldc, hcolor, mixfactor));
 		}
     }
 }
@@ -163,16 +214,53 @@ void outline_triangle() {
     }
 }
 
+void highlight_edge(uint v1, uint v2) {
+    if (v1 == -1 || v2 == -1) return;
+    uint tid = raygenIn[gl_GlobalInvocationID.x].tid;
+    if (tid == -1) return;
+	int rx = int(gl_GlobalInvocationID.x%o_ubo.image_width);
+    int ry = int(gl_GlobalInvocationID.x/o_ubo.image_width);
+    Ray ray = create_ray(vec2(rx, ry));
+    Triangle tri = triangleIn[tid];
+    vec3 A = vertexIn[tri.a].xyz;
+    vec3 B = vertexIn[tri.b].xyz;
+    vec3 C = vertexIn[tri.c].xyz;
+    vec3 e1 = B - A;
+    vec3 e2 = C - A;
+    vec3 h = cross(ray.direction, e2);
+    float a = dot(e1, h);
+    if (abs(a) < EPS) return;
+    float f = 1.0 / a;
+    vec3 s = ray.position - A;
+    float u = f * dot(s, h);
+    if (u < 0.0 || u > 1.0) return;
+    vec3 q = cross(s, e1);
+    float v = f * dot(ray.direction, q);
+    if (v < 0.0 || (u + v) > 1.0) return;
+    float w = 1.0 - u - v;
+    float edge_eps = 0.02;
+    bool highlight = false;
+    if ((v1 == tri.a && v2 == tri.b) || (v1 == tri.b && v2 == tri.a)) highlight = (v < edge_eps);
+    else if ((v1 == tri.a && v2 == tri.c) || (v1 == tri.c && v2 == tri.a)) highlight = (u < edge_eps);
+    else if ((v1 == tri.b && v2 == tri.c) || (v1 == tri.c && v2 == tri.b)) highlight = (w < edge_eps);
+    if (highlight) {
+		imageStore(outputImage, ivec2(rx, ry), highlight_color);
+    }
+}
+
 void main() {
     calculate_highlight_color();
-    if (o_ubo.divisor == 1.0)
-        outline_triangle();
+    outline_triangle();
     if (o_ubo.mode == TRIANGLE_SELECT)
         highlight_triangle(hovered_tid);
     else if (o_ubo.mode == VERTEX_SELECT)
         highlight_vertex(hovered_tid, vertex_position);
+    else if (o_ubo.mode == EDGE_SELECT)
+        highlight_edge(hovered_edge_v1, hovered_edge_v2);
 	if (o_ubo.mode != TRIANGLE_SELECT || hovered_tid != o_ubo.single_selected_tid)
 		highlight_triangle(o_ubo.single_selected_tid);
 	if (o_ubo.mode != VERTEX_SELECT || hovered_tid != o_ubo.single_selected_vid)
 		highlight_vertex(o_ubo.single_selected_vid, selected_vertex_position);
+    if (o_ubo.mode != EDGE_SELECT || (hovered_edge_v1 != o_ubo.single_selected_edge_v1 && hovered_edge_v2 != o_ubo.single_selected_edge_v2))
+        highlight_edge(o_ubo.single_selected_edge_v1, o_ubo.single_selected_edge_v2);
 }

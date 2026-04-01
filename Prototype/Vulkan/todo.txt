@@ -1,11 +1,20 @@
 1. load toh - DONE
 2. select faces - DONE
-    2a. remove materials and normals
-3. mark hole
-4. select edges
+    2a. remove materials and normals - DONE
+3. mark hole - DONE
+4. select edges - DONE
 5. set edge values
+    5a. override and generate edges and edgemap
+    5b. determine edge orientation
+    5c. color edge orientation
+    5d. set edge values
 6. orthogonal camera
------- clean -------
 7. cross sections
+------ bare minimum goal today ------
 8. simulate
 9. render heatmap
+10. select vertex and display inflow and outflow
+
+Alternate forms of visualization:
+1. heatmap
+2. replace edges with dots

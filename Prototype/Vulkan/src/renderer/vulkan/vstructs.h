@@ -26,28 +26,10 @@ typedef struct {
     alignas(16) vec3 w;
     alignas(8) vec2 viewport;
     alignas(4) uint32_t triangles;
-    alignas(4) uint32_t emissives;
-    alignas(4) uint32_t lights;
-    alignas(4) uint32_t samples;
-	alignas(4) uint32_t seed;
     alignas(4) uint32_t grid;
-    alignas(4) uint32_t reset;
-    alignas(4) uint32_t direct;
-    alignas(4) uint32_t directonly;
-    alignas(4) uint32_t showdof;
-    alignas(4) uint32_t normals;
-    alignas(4) uint32_t scenelighting;
-    alignas(4) uint32_t scenelightingonly;
     alignas(4) float fov;
     alignas(4) float width;
     alignas(4) float height;
-    alignas(4) float swap;
-	alignas(4) float frametime;
-    alignas(4) float whitepoint;
-    alignas(4) float gamma;
-    alignas(4) float lightarea;
-    alignas(4) float aperature;
-    alignas(4) float focus;
 } UniformBufferObject;
 
 typedef struct {
@@ -62,12 +44,15 @@ typedef struct {
 	alignas(4) uint32_t image_height;
 	alignas(4) uint32_t single_selected_tid;
 	alignas(4) uint32_t single_selected_vid;
-	alignas(4) uint32_t divisor;
+    alignas(4) uint32_t single_selected_edge_v1;
+    alignas(4) uint32_t single_selected_edge_v2;
     alignas(4) uint32_t mode;
 } OverlayUniformBufferObject;
 
 typedef struct {
 	alignas(4) TriangleID hovered_tid;
+    alignas(4) VertexID hovered_edge_v1;
+    alignas(4) VertexID hovered_edge_v2;
     alignas(8) vec2 vertex_position;
     alignas(8) vec2 selected_vertex_position;
 } OverlaySSBO;
@@ -133,7 +118,6 @@ typedef struct {
 typedef struct {
     VulkanPipeline pipeline;
     VulkanRenderData renderdata;
-    VulkanImage hdr[CPUSWAP_LENGTH];
     VulkanImage targets[CPUSWAP_LENGTH];
 } VulkanRenderContext;
 
@@ -151,12 +135,8 @@ typedef struct {
 
 typedef struct {
     VulkanBVH bvh;
-    VulkanDataBuffer normals;
     VulkanDataBuffer vertices;
     VulkanDataBuffer triangles;
-    VulkanDataBuffer emissives;
-    VulkanDataBuffer materials;
-    VulkanDataBuffer lights;
 } VulkanGeometry;
 
 typedef struct {

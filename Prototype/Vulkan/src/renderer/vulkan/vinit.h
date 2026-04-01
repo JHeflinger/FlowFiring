@@ -7,8 +7,6 @@ BOOL VINIT_Shaders(ARRLIST_VulkanShaderPtr* shaders);
 
 BOOL VINIT_OverlaySSBOs(VulkanDataBuffer* ssbo_array);
 
-BOOL VINIT_Lights(VulkanDataBuffer* lights);
-
 BOOL VINIT_Queue(VkQueue* queue);
 
 BOOL VINIT_Commands(VulkanCommands* commands);
@@ -35,17 +33,9 @@ BOOL VINIT_RenderContext(VulkanRenderContext* context);
 
 BOOL VINIT_BVH(VulkanBVH* bvh);
 
-BOOL VINIT_Normals(VulkanDataBuffer* normals);
-
 BOOL VINIT_Vertices(VulkanDataBuffer* vertices);
 
 BOOL VINIT_Triangles(VulkanDataBuffer* triangles);
-
-BOOL VINIT_Emissives(VulkanDataBuffer* emissives);
-
-BOOL VINIT_Materials(VulkanDataBuffer* materials);
-
-BOOL VINIT_TargetsHDR(VulkanImage* hdr_arr);
 
 BOOL VINIT_Targets(VulkanImage* targets_arr);
 

@@ -82,15 +82,6 @@ VulkanBoundVariable get_bound_variable(Renderer* renderer, const char* name, siz
 				sizeof(RayGenerator)
 			}
 		};
-	} else if (strcmp(name, "hdrImage") == 0) {
-		return (VulkanBoundVariable) {
-			STORAGE_IMAGE,
-			(SchrodingRef) {
-				TRUE,
-				&(renderer->vulkan.core.context.hdr[i].view)
-			},
-			(SchrodingSize) { (SchrodingRef) { 0 }, 0, 0 }
-		};
 	} else if (strcmp(name, "outputImage") == 0) {
 		return (VulkanBoundVariable) {
 			STORAGE_IMAGE,
@@ -113,36 +104,6 @@ VulkanBoundVariable get_bound_variable(Renderer* renderer, const char* name, siz
 					&(renderer->geometry.triangles.size)
 				}, 0.0f,
 				sizeof(Triangle)
-			}
-		};
-	} else if (strcmp(name, "EmissiveSSBOIn") == 0) {
-		return (VulkanBoundVariable) {
-			STORAGE_BUFFER,
-			(SchrodingRef) {
-				TRUE,
-				&(renderer->vulkan.core.geometry.emissives.buffer)
-			},
-			(SchrodingSize) {
-				(SchrodingRef) {
-					TRUE,
-					&(renderer->geometry.emissives.size)
-				}, 0.0f,
-				sizeof(TriangleID)
-			}
-		};
-	} else if (strcmp(name, "MaterialSSBOIn") == 0) {
-		return (VulkanBoundVariable) {
-			STORAGE_BUFFER,
-			(SchrodingRef) {
-				TRUE,
-				&(renderer->vulkan.core.geometry.materials.buffer)
-			},
-			(SchrodingSize) {
-				(SchrodingRef) {
-					TRUE,
-					&(renderer->geometry.materials.size)
-				}, 0.0f,
-				sizeof(SurfaceMaterial)
 			}
 		};
 	} else if (strcmp(name, "VertexSSBOIn") == 0) {
@@ -293,36 +254,6 @@ VulkanBoundVariable get_bound_variable(Renderer* renderer, const char* name, siz
 					(void*)16
 				}, 0.0f,
 				sizeof(uint32_t)
-			}
-		};
-	} else if (strcmp(name, "NormalSSBOIn") == 0) {
-		return (VulkanBoundVariable) {
-			STORAGE_BUFFER,
-			(SchrodingRef) {
-				TRUE,
-				&(renderer->vulkan.core.geometry.normals.buffer)
-			},
-			(SchrodingSize) {
-				(SchrodingRef) {
-					TRUE,
-					&(renderer->geometry.normals.size)
-				}, 0.0f,
-				sizeof(vec4)
-			}
-		};
-	} else if (strcmp(name, "LightSSBOIn") == 0) {
-		return (VulkanBoundVariable) {
-			STORAGE_BUFFER,
-			(SchrodingRef) {
-				TRUE,
-				&(renderer->vulkan.core.geometry.lights.buffer)
-			},
-			(SchrodingSize) {
-				(SchrodingRef) {
-					TRUE,
-					&(renderer->geometry.lights.size)
-				}, 0.0f,
-				sizeof(SceneLight)
 			}
 		};
 	} else if (strcmp(name, "OverlaySSBO") == 0) {

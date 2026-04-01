@@ -65,7 +65,6 @@ void DrawDevPanel(float width, float height) {
     UIDrawText("Renderer FPS: %d", (int)(1.0f / ((float)RenderTime() / 1000.0f)));
     UIDrawText("Render time: %.6f ms", (float)RenderTime());
     UIDrawText("Triangles: %d", (int)NumTriangles());
-    UIDrawText("Emissives: %d", (int)NumEmissives());
     UIDrawText("Render Resolution: %dx%d", (int)RenderResolution().x, (int)RenderResolution().y);
 }
 

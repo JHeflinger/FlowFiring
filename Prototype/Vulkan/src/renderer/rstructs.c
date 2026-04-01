@@ -8,8 +8,6 @@ uint64_t hash_edge(Edge edge) {
 IMPL_ARRLIST(Edge);
 IMPL_ARRLIST(TriangleID);
 IMPL_ARRLIST(Triangle);
-IMPL_ARRLIST(SurfaceMaterial);
-IMPL_ARRLIST(SceneLight);
 IMPL_ARR_ARRLIST(vec4);
 IMPL_ARR_ARRLIST(vec3);
 IMPL_HASHMAP(VertexID, BOOL, Locks, ez_hash_uint32_t);

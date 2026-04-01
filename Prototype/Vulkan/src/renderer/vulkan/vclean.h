@@ -5,19 +5,11 @@
 
 void VCLEAN_Shaders(ARRLIST_VulkanShaderPtr* shaders);
 
-void VCLEAN_Lights(VulkanDataBuffer* lights);
-
 void VCLEAN_BVH(VulkanBVH* bvh);
-
-void VCLEAN_Normals(VulkanDataBuffer* normals);
 
 void VCLEAN_Vertices(VulkanDataBuffer* vertices);
 
 void VCLEAN_Triangles(VulkanDataBuffer* triangles);
-
-void VCLEAN_Emissives(VulkanDataBuffer* emissives);
-
-void VCLEAN_Materials(VulkanDataBuffer* materials);
 
 void VCLEAN_Geometry(VulkanGeometry* geometry);
 

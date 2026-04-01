@@ -6,6 +6,8 @@
 
 void SetEditTriangle(size_t index);
 
+void SetEditEdge(Edge edge);
+
 void DeselectEditTarget();
 
 Panel GenerateEditPanel();

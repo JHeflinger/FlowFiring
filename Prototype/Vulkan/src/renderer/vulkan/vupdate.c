@@ -9,24 +9,6 @@
 
 Renderer* g_vupdt_renderer_ref = NULL;
 
-void VUPDT_Lights(VulkanDataBuffer* lights) {
-    if (sizeof(SceneLight) * g_vupdt_renderer_ref->geometry.lights.maxsize == 0) return;
-    VUTIL_CopyHostToBuffer(
-        g_vupdt_renderer_ref->geometry.lights.data,
-        sizeof(SceneLight) * g_vupdt_renderer_ref->geometry.lights.size,
-        sizeof(SceneLight) * g_vupdt_renderer_ref->geometry.lights.maxsize,
-        lights->buffer);
-}
-
-void VUPDT_Normals(VulkanDataBuffer* normals) {
-    if (sizeof(vec4) * g_vupdt_renderer_ref->geometry.normals.maxsize == 0) return;
-    VUTIL_CopyHostToBuffer(
-        g_vupdt_renderer_ref->geometry.normals.data,
-        sizeof(vec4) * g_vupdt_renderer_ref->geometry.normals.size,
-        sizeof(vec4) * g_vupdt_renderer_ref->geometry.normals.maxsize,
-        normals->buffer);
-}
-
 void VUPDT_Vertices(VulkanDataBuffer* vertices) {
     if (sizeof(vec4) * g_vupdt_renderer_ref->geometry.vertices.maxsize == 0) return;
     VUTIL_CopyHostToBuffer(
@@ -43,24 +25,6 @@ void VUPDT_Triangles(VulkanDataBuffer* triangles) {
         sizeof(Triangle) * g_vupdt_renderer_ref->geometry.triangles.size,
         sizeof(Triangle) * g_vupdt_renderer_ref->geometry.triangles.maxsize,
         triangles->buffer);
-}
-
-void VUPDT_Emissives(VulkanDataBuffer* emissives) {
-    if (sizeof(TriangleID) * g_vupdt_renderer_ref->geometry.emissives.maxsize == 0) return;
-    VUTIL_CopyHostToBuffer(
-        g_vupdt_renderer_ref->geometry.emissives.data,
-        sizeof(TriangleID) * g_vupdt_renderer_ref->geometry.emissives.size,
-        sizeof(TriangleID) * g_vupdt_renderer_ref->geometry.emissives.maxsize,
-        emissives->buffer);
-}
-
-void VUPDT_Materials(VulkanDataBuffer* materials) {
-    if (sizeof(SurfaceMaterial) * g_vupdt_renderer_ref->geometry.materials.maxsize == 0) return;
-    VUTIL_CopyHostToBuffer(
-        g_vupdt_renderer_ref->geometry.materials.data,
-        sizeof(SurfaceMaterial) * g_vupdt_renderer_ref->geometry.materials.size,
-        sizeof(SurfaceMaterial) * g_vupdt_renderer_ref->geometry.materials.maxsize,
-        materials->buffer);
 }
 
 void VUPDT_RecordCommand(VkCommandBuffer command) {
@@ -248,25 +212,6 @@ void VUPDT_UniformBuffers(UBOArray* ubos) {
     uint32_t mx = (GetMouseX() - offset.x) * (renderer_dimensions.x / GetScreenWidth());
     uint32_t my = (GetMouseY() - offset.y) * (renderer_dimensions.y / GetScreenHeight());
 
-    // check for camera reset
-    static SimpleCamera old_camera = { 0 };
-    static PipelineFlags old_flags = 0;
-    static int reset_count = 0;
-    if (old_camera.fov == 0.0f) old_camera = g_vupdt_renderer_ref->camera;
-    if (old_flags == 0) old_flags = g_vupdt_renderer_ref->config.flags;
-    if (old_flags != g_vupdt_renderer_ref->config.flags ||
-        memcmp(&old_camera, &(g_vupdt_renderer_ref->camera), sizeof(SimpleCamera)) != 0) 
-        reset_count = CPUSWAP_LENGTH;
-    old_camera = g_vupdt_renderer_ref->camera;
-    old_flags = g_vupdt_renderer_ref->config.flags;
-    BOOL cam_reset = reset_count != 0;
-    if (reset_count > 0) reset_count--;
-
-    // persistant vars
-    static uint32_t samples = 0;
-    samples++;
-    if (cam_reset) samples = 1;
-
     // core uniform buffer
     {
         UniformBufferObject ubo = { 0 };
@@ -283,25 +228,7 @@ void VUPDT_UniformBuffers(UBOArray* ubos) {
         ubo.triangles = g_vupdt_renderer_ref->geometry.triangles.size;
         ubo.viewport[0] = g_vupdt_renderer_ref->viewport.x;
         ubo.viewport[1] = g_vupdt_renderer_ref->viewport.y;
-        ubo.emissives = g_vupdt_renderer_ref->geometry.emissives.size;
-        ubo.frametime = RenderFrameTime();
-        ubo.seed = rand();
-        ubo.lights = g_vupdt_renderer_ref->geometry.lights.size;
         ubo.grid = (uint32_t)g_vupdt_renderer_ref->config.grid;
-        ubo.reset = cam_reset;
-        ubo.samples = samples;
-        ubo.direct = g_vupdt_renderer_ref->config.direct;
-        ubo.lightarea = g_vupdt_renderer_ref->geometry.lightarea;
-        ubo.whitepoint = g_vupdt_renderer_ref->config.whitepoint*g_vupdt_renderer_ref->config.whitepoint;
-        ubo.gamma = g_vupdt_renderer_ref->config.gamma;
-        ubo.swap = CPUSWAP_LENGTH;
-        ubo.showdof = g_vupdt_renderer_ref->config.showdof;
-        ubo.aperature = g_vupdt_renderer_ref->camera.aperature;
-        ubo.focus = g_vupdt_renderer_ref->camera.focus;
-        ubo.normals = g_vupdt_renderer_ref->config.normals;
-        ubo.directonly = g_vupdt_renderer_ref->config.directonly;
-        ubo.scenelighting = g_vupdt_renderer_ref->config.scenelighting;
-        ubo.scenelightingonly = g_vupdt_renderer_ref->config.scenelightingonly;
         memcpy(ubos->mapped[g_vupdt_renderer_ref->swapchain.index], &ubo, sizeof(UniformBufferObject));
     }
 
@@ -314,7 +241,8 @@ void VUPDT_UniformBuffers(UBOArray* ubos) {
 		ubo.image_height = g_vupdt_renderer_ref->dimensions.y;
         ubo.single_selected_tid = GetSelectedTriangle();
         ubo.single_selected_vid = GetSelectedVertex();
-        ubo.divisor = g_vupdt_renderer_ref->config.flags & PATHTRACE_SHADER_FLAG ? CPUSWAP_LENGTH : 1;
+        ubo.single_selected_edge_v1 = GetSelectedEdge().a;
+        ubo.single_selected_edge_v2 = GetSelectedEdge().b;
         ubo.mode = GetOverlayMode();
         memcpy(ubos->overlay_mapped[g_vupdt_renderer_ref->swapchain.index], &ubo, sizeof(OverlayUniformBufferObject));
     }

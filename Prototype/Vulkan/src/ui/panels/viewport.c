@@ -108,35 +108,12 @@ void PanCameraControls() {
     }
 }
 
-void PanSelectedObject() {
-    if (g_lfocused) {
-        vec3 selected, offset, u, v, w, _w;
-        if (GetSelectedVertex() != (VertexID)-1) {
-            float* vref = VertexReference(GetSelectedVertex());
-            glm_vec3_copy(vref, selected);
-        } else return;
-        SimpleCamera camera = GetCamera();
-        CameraUVW(camera, u, v, w);
-        glm_vec3_scale(w, -1.0f, _w);
-        glm_vec3_sub(selected, camera.position, offset);
-        float cz = glm_vec3_dot(offset, _w);
-        float r = RenderResolution().x * 0.5f;
-        float b = RenderResolution().y * 0.5f;
-        float fov = glm_rad(camera.fov);
-        float d = (cos(fov/2.0f) / sin(fov/2.0f)) * r;
-        float mx = GetMousePosition().x - (g_viewport_position.x + (g_viewport_dimensions.x / 2.0f) - (RenderResolution().x / 2.0f));
-        float my = GetMousePosition().y - (g_viewport_position.y + (g_viewport_dimensions.y / 2.0f) - (RenderResolution().y / 2.0f));
-        float px = ((mx / RenderResolution().x) * 2.0f * r) - r;
-        float py = b - ((my / RenderResolution().y) * 2.0f * b);
-        float cx = (px / d) * cz;
-        float cy = (py / d) * cz;
-        glm_vec3_scale(u, cx, u);
-        glm_vec3_scale(v, cy, v);
-        glm_vec3_scale(w, cz, w);
-        glm_vec3_add(u, v, selected);
-        glm_vec3_sub(selected, w, selected);
-        glm_vec3_add(camera.position, selected, VertexReference(GetSelectedVertex()));
-        UpdateVertices();
+void ToggleHole() {
+    TriangleID tid = GetSelectedTriangle();
+    if (tid != (TriangleID)-1) {
+        Triangle* tref = TriangleReference(tid);
+        tref->hole = !tref->hole;
+        UpdateTriangles();
     }
 }
 
@@ -195,6 +172,15 @@ void UpdateViewportPanel(float width, float height) {
                     DeselectEditTarget();
                 }
                 break;
+            case EDGE_SELECT_MODE:
+                Edge edge = HoveredEdge();
+                if (edge.a != (VertexID)-1 && edge.b != (VertexID)-1) {
+                    SetEditEdge(edge);
+                    SetSelectedEdge(edge);
+                } else {
+                    DeselectEditTarget();
+                }
+                break;
             default: break;
         }
     }
@@ -215,10 +201,10 @@ Panel GenerateViewportPanel() {
     g_viewport_target = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
     AddBind("rotate viewport camera", RotateCameraControls, (BindCommand){ IK_PAN_CAMERA, BIND_KEY_DOWN }, (BindCommand){ IK_MOUSERIGHT, BIND_BUTTON_END });
     AddBind("pan viewport camera", PanCameraControls, (BindCommand){ IK_PAN_CAMERA, BIND_KEY_DOWN }, (BindCommand){ IK_MOUSELEFT, BIND_BUTTON_END });
-    AddBind("yank selected vertex", PanSelectedObject, (BindCommand){ IK_PAN_SELECTED, BIND_KEY_DOWN }, (BindCommand){ IK_MOUSELEFT, BIND_BUTTON_END });
     AddBind("zoom viewport camera", ZoomCameraControls, (BindCommand){ IK_ZOOM, BIND_KEY_END });
 	AddBind("reset viewport camera", ResetViewportCamera, (BindCommand){ IK_RESET_CAMERA, BIND_KEY_PRESSED });
 	AddBind("fit viewport camera to model", FitCamera, (BindCommand){ IK_FIT_CAMERA, BIND_KEY_PRESSED });
+	AddBind("Toggle face hole", ToggleHole, (BindCommand){ IK_TOGGLE_HOLE, BIND_KEY_PRESSED });
     AddBind("toggle input hints", ToggleHints, (BindCommand){ IK_TOGGLE_HINTS, BIND_KEY_PRESSED });
     return p;
 }

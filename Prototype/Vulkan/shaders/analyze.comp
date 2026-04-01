@@ -3,6 +3,7 @@
 #define NO_SELECT 0
 #define TRIANGLE_SELECT 1
 #define VERTEX_SELECT 2
+#define EDGE_SELECT 3
 #define EPS 0.000001
 
 struct RayGenerator {
@@ -16,13 +17,10 @@ struct Ray {
 };
 
 struct Triangle {
+    uint hole;
     uint a;
     uint b;
     uint c;
-    uint an;
-    uint bn;
-    uint cn;
-    uint material;
 };
 
 layout(binding = 0) buffer RayGeneratorSSBOIn {
@@ -31,6 +29,8 @@ layout(binding = 0) buffer RayGeneratorSSBOIn {
 
 layout(binding = 1) buffer OverlaySSBO {
 	uint hovered_tid;
+    uint hovered_edge_v1;
+    uint hovered_edge_v2;
     vec2 vertex_position;
     vec2 selected_vertex_position;
 };
@@ -50,7 +50,8 @@ layout(binding = 4) uniform OverlayUniformBufferObject {
 	uint image_height;
 	uint single_selected_tid;
     uint single_selected_vid;
-    uint divisor;
+    uint single_selected_edge_v1;
+    uint single_selected_edge_v2;
     uint mode;
 } o_ubo;
 
@@ -63,28 +64,10 @@ layout(binding = 5) uniform UniformBufferObject {
     vec3 w;
     vec2 viewport;
     uint triangles;
-    uint emissives;
-    uint lights;
-    uint samples;
-	uint seed;
     uint grid;
-    uint reset;
-    uint direct;
-    uint directonly;
-    uint showdof;
-    uint normals;
-    uint scenelighting;
-    uint scenelightingonly;
     float fov;
     float width;
     float height;
-    float swap;
-	float frametime;
-    float whitepoint;
-    float gamma;
-    float lightarea;
-    float aperature;
-    float focus;
 } ubo;
 
 layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
@@ -127,9 +110,6 @@ void main() {
         if (o_ubo.mode == TRIANGLE_SELECT) {
 		    hovered_tid = raygenIn[gl_GlobalInvocationID.x].tid;
         } else if (o_ubo.mode == VERTEX_SELECT) {
-            hovered_tid = -1;
-	        int rx = int(gl_GlobalInvocationID.x%int(ubo.width));
-            int ry = int(gl_GlobalInvocationID.x/int(ubo.width));
             Ray ray = create_ray(vec2(rx, ry));
             Triangle tri = triangleIn[raygenIn[gl_GlobalInvocationID.x].tid];
             vec3 _a = vertexIn[tri.a];
@@ -150,6 +130,37 @@ void main() {
             float w = 1.0f - u - v;
             hovered_tid = (u > v && u > w) ? tri.b : (v > w ? tri.c : tri.a);
             vertex_position = project_vertex(vertexIn[hovered_tid]);
+        } else if (o_ubo.mode == EDGE_SELECT) {
+            hovered_edge_v1 = -1;
+            hovered_edge_v2 = -1;
+            Ray ray = create_ray(vec2(rx, ry));
+            Triangle tri = triangleIn[raygenIn[gl_GlobalInvocationID.x].tid];
+            vec3 _a = vertexIn[tri.a];
+            vec3 _b = vertexIn[tri.b];
+            vec3 _c = vertexIn[tri.c];
+            vec3 e1 = _b - _a;
+            vec3 e2 = _c - _a;
+            vec3 h = cross(ray.direction, e2);
+            float a = dot(e1, h);
+            if (abs(a) < EPS) return;
+            float f = 1.0 / a;
+            vec3 s = ray.position - _a;
+            float u = f*dot(s, h);
+            if (u < 0.0 || u > 1.0) return;
+            vec3 q = cross(s, e1);
+            float v = f*dot(ray.direction, q);
+            if (v < 0.0 || u + v > 1.0) return;
+            float w = 1.0f - u - v;
+            if (u < v && u < w) {
+                hovered_edge_v1 = tri.a;
+                hovered_edge_v2 = tri.c;
+            } else if (v < w) {
+                hovered_edge_v1 = tri.a;
+                hovered_edge_v2 = tri.b;
+            } else {
+                hovered_edge_v1 = tri.b;
+                hovered_edge_v2 = tri.c;
+            }
         }
     }
 }

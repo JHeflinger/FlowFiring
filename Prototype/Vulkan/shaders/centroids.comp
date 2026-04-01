@@ -10,13 +10,10 @@ struct BVHNode {
 };
 
 struct Triangle {
+    uint hole;
     uint a;
     uint b;
     uint c;
-    uint an;
-    uint bn;
-    uint cn;
-    uint material;
 };
 
 struct BoundingBox {

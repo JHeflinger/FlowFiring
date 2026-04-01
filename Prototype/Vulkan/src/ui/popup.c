@@ -72,70 +72,38 @@ int add_toh(size_t x, size_t y, size_t w, size_t h) {
                         vec3 v = { origin[0] + w*1.0f, origin[1] + h*0.7f, origin[2] + l*1.0f };
                         SubmitVertex(v);
                         if (h > 0 && w > 0 && l > 0) {
-                            SubmitTriangle((Triangle){
-                                NumVertices() - 1, NumVertices() - 2, lindex + g_toh_w*(l - 1) + w - 1,
-                                (uint32_t)-1, (uint32_t)-1, (uint32_t)-1, 0 });
-                            SubmitTriangle((Triangle){
-                                NumVertices() - 1 - (g_toh_l + 1), NumVertices() - 2 - (g_toh_l + 1), lindex + g_toh_w*(l - 1) + w - 1,
-                                (uint32_t)-1, (uint32_t)-1, (uint32_t)-1, 0 });
-                            SubmitTriangle((Triangle){
-                                NumVertices() - 1 - (g_toh_l + 1), NumVertices() - 1, lindex + g_toh_w*(l - 1) + w - 1,
-                                (uint32_t)-1, (uint32_t)-1, (uint32_t)-1, 0 });
-                            SubmitTriangle((Triangle){
-                                NumVertices() - 2, NumVertices() - 2 - (g_toh_l + 1), lindex + g_toh_w*(l - 1) + w - 1,
-                                (uint32_t)-1, (uint32_t)-1, (uint32_t)-1, 0 });
+                            SubmitTriangle((Triangle){ 0, NumVertices() - 1, NumVertices() - 2, lindex + g_toh_w*(l - 1) + w - 1 });
+                            SubmitTriangle((Triangle){ 0, NumVertices() - 1 - (g_toh_l + 1), NumVertices() - 2 - (g_toh_l + 1), lindex + g_toh_w*(l - 1) + w - 1 });
+                            SubmitTriangle((Triangle){ 0, NumVertices() - 1 - (g_toh_l + 1), NumVertices() - 1, lindex + g_toh_w*(l - 1) + w - 1 });
+                            SubmitTriangle((Triangle){ 0, NumVertices() - 2, NumVertices() - 2 - (g_toh_l + 1), lindex + g_toh_w*(l - 1) + w - 1 });
                         }
                         if (h > 0 && w > 0 && w < g_toh_w && l < g_toh_l) {
-                            SubmitTriangle((Triangle){
-                                NumVertices() - 1, lindex + g_toh_w*l + w, lindex + g_toh_w*l + w - 1,
-                                (uint32_t)-1, (uint32_t)-1, (uint32_t)-1, 0 });
+                            SubmitTriangle((Triangle){ 0, NumVertices() - 1, lindex + g_toh_w*l + w, lindex + g_toh_w*l + w - 1 });
                         }
                         if (h > 0 && w > 0 && w < g_toh_w && l > 0) {
-                            SubmitTriangle((Triangle){
-                                NumVertices() - 1, lindex + g_toh_w*(l - 1) + w, lindex + g_toh_w*(l - 1) + w - 1,
-                                (uint32_t)-1, (uint32_t)-1, (uint32_t)-1, 0 });
+                            SubmitTriangle((Triangle){ 0, NumVertices() - 1, lindex + g_toh_w*(l - 1) + w, lindex + g_toh_w*(l - 1) + w - 1 });
                         }
                         if (h > 0 && w < g_toh_w && l > 0 && l < g_toh_l) {
-                            SubmitTriangle((Triangle){
-                                NumVertices() - 1, lindex + g_toh_w*(l - 1) + w, lindex + g_toh_w*l + w,
-                                (uint32_t)-1, (uint32_t)-1, (uint32_t)-1, 0 });
+                            SubmitTriangle((Triangle){ 0, NumVertices() - 1, lindex + g_toh_w*(l - 1) + w, lindex + g_toh_w*l + w });
                         }
                         if (h > 0 && w > 0 && l > 0 && l < g_toh_l) {
-                            SubmitTriangle((Triangle){
-                                NumVertices() - 1, lindex + g_toh_w*(l - 1) + w - 1, lindex + g_toh_w*l + w - 1,
-                                (uint32_t)-1, (uint32_t)-1, (uint32_t)-1, 0 });
+                            SubmitTriangle((Triangle){ 0, NumVertices() - 1, lindex + g_toh_w*(l - 1) + w - 1, lindex + g_toh_w*l + w - 1 });
                         }
                     } else {
                         if (w == g_toh_w || l == g_toh_l) continue;
                         vec3 v = { origin[0] + w*1.0f + 0.5f, origin[1] + h*0.7f, origin[2] + l*1.0f + 0.5f };
                         SubmitVertex(v);
-                        SubmitTriangle((Triangle){
-                            NumVertices() - 1, lindex + (g_toh_w + 1)*l + w, lindex + (g_toh_w + 1)*l + w + 1,
-                            (uint32_t)-1, (uint32_t)-1, (uint32_t)-1, 0 });
-                        SubmitTriangle((Triangle){
-                            NumVertices() - 1, lindex + (g_toh_w + 1)*(l + 1) + w, lindex + (g_toh_w + 1)*(l + 1) + w + 1,
-                            (uint32_t)-1, (uint32_t)-1, (uint32_t)-1, 0 });
-                        SubmitTriangle((Triangle){
-                            NumVertices() - 1, lindex + (g_toh_w + 1)*l + w, lindex + (g_toh_w + 1)*(l + 1) + w,
-                            (uint32_t)-1, (uint32_t)-1, (uint32_t)-1, 0 });
-                        SubmitTriangle((Triangle){
-                            NumVertices() - 1, lindex + (g_toh_w + 1)*l + w + 1, lindex + (g_toh_w + 1)*(l + 1) + w + 1,
-                            (uint32_t)-1, (uint32_t)-1, (uint32_t)-1, 0 });
+                        SubmitTriangle((Triangle){ 0, NumVertices() - 1, lindex + (g_toh_w + 1)*l + w, lindex + (g_toh_w + 1)*l + w + 1 });
+                        SubmitTriangle((Triangle){ 0, NumVertices() - 1, lindex + (g_toh_w + 1)*(l + 1) + w, lindex + (g_toh_w + 1)*(l + 1) + w + 1 });
+                        SubmitTriangle((Triangle){ 0, NumVertices() - 1, lindex + (g_toh_w + 1)*l + w, lindex + (g_toh_w + 1)*(l + 1) + w });
+                        SubmitTriangle((Triangle){ 0, NumVertices() - 1, lindex + (g_toh_w + 1)*l + w + 1, lindex + (g_toh_w + 1)*(l + 1) + w + 1 });
                         if (w > 0) {
-                            SubmitTriangle((Triangle){
-                                NumVertices() - 1, NumVertices() - 2, lindex + (g_toh_w + 1)*l + w,
-                                (uint32_t)-1, (uint32_t)-1, (uint32_t)-1, 0 });
-                            SubmitTriangle((Triangle){
-                                NumVertices() - 1, NumVertices() - 2, lindex + (g_toh_w + 1)*(l + 1) + w,
-                                (uint32_t)-1, (uint32_t)-1, (uint32_t)-1, 0 });
+                            SubmitTriangle((Triangle){ 0, NumVertices() - 1, NumVertices() - 2, lindex + (g_toh_w + 1)*l + w });
+                            SubmitTriangle((Triangle){ 0, NumVertices() - 1, NumVertices() - 2, lindex + (g_toh_w + 1)*(l + 1) + w });
                         }
                         if (l > 0) {
-                            SubmitTriangle((Triangle){
-                                NumVertices() - 1, NumVertices() - 1 - g_toh_l, lindex + (g_toh_w + 1)*l + w,
-                                (uint32_t)-1, (uint32_t)-1, (uint32_t)-1, 0 });
-                            SubmitTriangle((Triangle){
-                                NumVertices() - 1, NumVertices() - 1 - g_toh_l, lindex + (g_toh_w + 1)*l + w + 1,
-                                (uint32_t)-1, (uint32_t)-1, (uint32_t)-1, 0 });
+                            SubmitTriangle((Triangle){ 0, NumVertices() - 1, NumVertices() - 1 - g_toh_l, lindex + (g_toh_w + 1)*l + w });
+                            SubmitTriangle((Triangle){ 0, NumVertices() - 1, NumVertices() - 1 - g_toh_l, lindex + (g_toh_w + 1)*l + w + 1 });
                         }
                     }
                 }

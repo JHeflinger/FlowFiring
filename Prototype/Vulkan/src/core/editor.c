@@ -8,8 +8,6 @@
 #include "ui/panels/viewport.h"
 #include "ui/panels/overview.h"
 #include "ui/panels/edit.h"
-#include "ui/panels/mesh.h"
-#include "ui/panels/actions.h"
 #include "ui/panels/graph.h"
 #include "renderer/renderer.h"
 #include "core/dev.h"
@@ -44,10 +42,8 @@ void InitEditor() {
     ((UI*)g_ui->left)->divide = 350;
     ARRLIST_Panel_add(&(((UI*)(((UI*)g_ui->right)->right))->panels), GenerateDiagnosticsPanel());
     ARRLIST_Panel_add(&(((UI*)(((UI*)g_ui->right)->left))->panels), GenerateOverviewPanel());
-    ARRLIST_Panel_add(&(((UI*)(((UI*)g_ui->right)->left))->panels), GenerateActionsPanel());
     ARRLIST_Panel_add(&(((UI*)(((UI*)g_ui->left)->right))->panels), GenerateViewportPanel());
     ARRLIST_Panel_add(&(GetLeftUI(GetLeftUI(GetLeftUI(g_ui)))->panels), GenerateEditPanel());
-    ARRLIST_Panel_add(&(GetLeftUI(GetLeftUI(GetLeftUI(g_ui)))->panels), GenerateMeshPanel());
     ARRLIST_Panel_add(&(GetRightUI(GetLeftUI(GetLeftUI(g_ui)))->panels), GenerateGraphPanel());
     g_ui->divide = 1250;
     SetPrimaryUI(g_ui);

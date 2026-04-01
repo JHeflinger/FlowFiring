@@ -42,14 +42,6 @@ BOOL VINIT_Shaders(ARRLIST_VulkanShaderPtr* shaders) {
         "build/shaders/default.comp.spv"));
 	ARRLIST_VulkanShaderPtr_add(shaders, GenerateShader(
         g_vinit_renderer_ref,
-        "shaders/path.comp",
-        "build/shaders/path.comp.spv"));
-	ARRLIST_VulkanShaderPtr_add(shaders, GenerateShader(
-        g_vinit_renderer_ref,
-        "shaders/tonemap.comp",
-        "build/shaders/tonemap.comp.spv"));
-	ARRLIST_VulkanShaderPtr_add(shaders, GenerateShader(
-        g_vinit_renderer_ref,
         "shaders/analyze.comp",
         "build/shaders/analyze.comp.spv"));
 	ARRLIST_VulkanShaderPtr_add(shaders, GenerateShader(
@@ -68,18 +60,6 @@ BOOL VINIT_OverlaySSBOs(VulkanDataBuffer* ssbo_array) {
 		    &(ssbo_array[i]));
     }
 	return TRUE;
-}
-
-BOOL VINIT_Lights(VulkanDataBuffer* lights) {
-    size_t arrsize = sizeof(SceneLight) * g_vinit_renderer_ref->geometry.lights.maxsize;
-    arrsize = arrsize > 0 ? arrsize : 1;
-    VUTIL_CreateBuffer(
-        arrsize,
-        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-        lights);
-    VUPDT_Lights(lights);
-    return TRUE;
 }
 
 BOOL VINIT_Queue(VkQueue* queue) {
@@ -373,7 +353,6 @@ BOOL VINIT_OverlayBridge(VulkanDataBuffer* bridge) {
 }
 
 BOOL VINIT_RenderContext(VulkanRenderContext* context) {
-    if (!VINIT_TargetsHDR(context->hdr)) return FALSE;
 	if (!VINIT_Targets(context->targets)) return FALSE;
 	if (!VINIT_RenderData(&(context->renderdata))) return FALSE;
 	if (!VINIT_Pipeline(&(context->pipeline))) return FALSE;
@@ -464,18 +443,6 @@ BOOL VINIT_BVH(VulkanBVH* bvh) {
     return TRUE;
 }
 
-BOOL VINIT_Normals(VulkanDataBuffer* normals) {
-    size_t arrsize = sizeof(vec4) * g_vinit_renderer_ref->geometry.normals.maxsize;
-    arrsize = arrsize > 0 ? arrsize : 1;
-    VUTIL_CreateBuffer(
-        arrsize,
-        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-        normals);
-    VUPDT_Normals(normals);
-    return TRUE;
-}
-
 BOOL VINIT_Vertices(VulkanDataBuffer* vertices) {
     size_t arrsize = sizeof(vec4) * g_vinit_renderer_ref->geometry.vertices.maxsize;
     arrsize = arrsize > 0 ? arrsize : 1;
@@ -497,53 +464,6 @@ BOOL VINIT_Triangles(VulkanDataBuffer* triangles) {
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
         triangles);
     VUPDT_Triangles(triangles);
-    return TRUE;
-}
-
-BOOL VINIT_Emissives(VulkanDataBuffer* emissives) {
-    size_t arrsize = sizeof(TriangleID) * g_vinit_renderer_ref->geometry.emissives.maxsize;
-    arrsize = arrsize > 0 ? arrsize : 1;
-    VUTIL_CreateBuffer(
-        arrsize,
-        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-        emissives);
-    VUPDT_Emissives(emissives);
-    return TRUE;
-}
-
-BOOL VINIT_Materials(VulkanDataBuffer* materials) {
-    size_t arrsize = sizeof(SurfaceMaterial) * g_vinit_renderer_ref->geometry.materials.maxsize;
-    arrsize = arrsize > 0 ? arrsize : 1;
-    VUTIL_CreateBuffer(
-        arrsize,
-        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-        materials);
-    VUPDT_Materials(materials);
-    return TRUE;
-}
-
-BOOL VINIT_TargetsHDR(VulkanImage* hdr_arr) {
-    for (size_t i = 0; i < CPUSWAP_LENGTH; i++) {
-        VUTIL_CreateImage(
-            g_vinit_renderer_ref->dimensions.x,
-            g_vinit_renderer_ref->dimensions.y,
-            1,
-            VK_SAMPLE_COUNT_1_BIT,
-            VK_FORMAT_R16G16B16A16_SFLOAT,
-            VK_IMAGE_TILING_OPTIMAL,
-            VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
-            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-            VK_IMAGE_ASPECT_COLOR_BIT,
-            &(hdr_arr[i]));
-        VUTIL_TransitionImageLayout(
-            hdr_arr[i].image,
-            VK_FORMAT_R16G16B16A16_SFLOAT,
-            VK_IMAGE_LAYOUT_UNDEFINED,
-            VK_IMAGE_LAYOUT_GENERAL,
-            1);
-    }
     return TRUE;
 }
 
@@ -706,12 +626,8 @@ BOOL VINIT_General(VulkanGeneral* general) {
 
 BOOL VINIT_Geometry(VulkanGeometry* geometry) {
     if (!VINIT_BVH(&(geometry->bvh))) return FALSE;
-    if (!VINIT_Normals(&(geometry->normals))) return FALSE;
     if (!VINIT_Vertices(&(geometry->vertices))) return FALSE;
 	if (!VINIT_Triangles(&(geometry->triangles))) return FALSE;
-	if (!VINIT_Emissives(&(geometry->emissives))) return FALSE;
-	if (!VINIT_Materials(&(geometry->materials))) return FALSE;
-	if (!VINIT_Lights(&(geometry->lights))) return FALSE;
     return TRUE;
 }
 

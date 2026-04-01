@@ -38,18 +38,9 @@ void InitializeRenderer() {
 	srand(time(NULL));
 
     // initialize config
-    g_renderer.config.whitepoint = 20.0f;
-    g_renderer.config.gamma = 2.2f;
-    g_renderer.config.direct = TRUE;
     g_renderer.config.grid = TRUE;
     g_renderer.config.async = TRUE;
-    g_renderer.config.showdof = TRUE;
-    g_renderer.config.directonly = FALSE;
-    g_renderer.config.scenelighting = TRUE;
-    g_renderer.config.scenelightingonly = FALSE;
-    g_renderer.config.normals = TRUE;
     g_renderer.config.flags = PREVIEW_PIPELINE_FLAGS;
-    g_renderer.config.arapiterations = 10;
 
     // initialize min/max BB
     SETVEC3(g_renderer.geometry.bounds.min, FLT_MAX, FLT_MAX, FLT_MAX);
@@ -89,28 +80,14 @@ void InitializeRenderer() {
     g_renderer.stats.cache.update_interval = 1.0;
     PollGPUCache(TRUE);
 
-    // default material
-    SubmitNamedMaterial((SurfaceMaterial){
-        {0.0f, 0.0f, 0.0f},
-        {1.0f, 1.0f, 1.0f},
-        {1.0f, 1.0f, 1.0f},
-        {0.0f, 0.0f, 0.0f},
-        {0.0f, 0.0f, 0.0f},
-        {0.0f, 0.0f, 0.0f},
-        0, 10.0f, 2
-    }, "Default");
-
     // set overlay context
     SetOverlayContext(&g_renderer);
 }
 
 void DestroyRenderer() {
     // clean geometry
-    ClearNormals();
     ClearVertices();
     ClearTriangles();
-    ClearMaterials();
-    ClearLights();
 
     // destroy vulkan resources
     VCLEAN_Vulkan(&(g_renderer.vulkan));
@@ -162,29 +139,6 @@ float* VertexReference(VertexID vertex) {
     return g_renderer.geometry.vertices.data[vertex];
 }
 
-void LockVertex(VertexID vertex) {
-    EZ_ASSERT(vertex < g_renderer.geometry.vertices.size, "Vertex does not exist for requested index");
-    HASHMAP_Locks_set(&(g_renderer.geometry.locks), vertex, TRUE);
-    g_renderer.geometry.vertices.data[vertex][3] = 1.0f;
-    UpdateVertices();
-}
-
-void UnlockVertex(VertexID vertex) {
-    EZ_ASSERT(vertex < g_renderer.geometry.vertices.size, "Vertex does not exist for requested index");
-    if (HASHMAP_Locks_has(&(g_renderer.geometry.locks), vertex)) {
-        HASHMAP_Locks_set(&(g_renderer.geometry.locks), vertex, FALSE);
-        g_renderer.geometry.vertices.data[vertex][3] = 0.0f;
-        UpdateVertices();
-    }
-}
-
-BOOL VertexLocked(VertexID vertex) {
-    EZ_ASSERT(vertex < g_renderer.geometry.vertices.size, "Vertex does not exist for requested index");
-    if (HASHMAP_Locks_has(&(g_renderer.geometry.locks), vertex)) 
-        return HASHMAP_Locks_get(&(g_renderer.geometry.locks), vertex);
-    return FALSE;
-}
-
 void SubmitVertex(vec3 vertex) {
     g_renderer.geometry.changes.update_vertices = TRUE;
     vec4 v = { 0 };
@@ -208,34 +162,11 @@ void ClearVertices() {
     SETVEC3(g_renderer.geometry.bounds.max, -FLT_MAX, -FLT_MAX, -FLT_MAX);
 }
 
-void SubmitNormal(vec3 normal) {
-    g_renderer.geometry.changes.update_normals = TRUE;
-    vec4 n = { 0 };
-    glm_vec3_copy(normal, n);
-    ARRLIST_vec4_add(&(g_renderer.geometry.normals), n);
-}
-
-void ClearNormals() {
-    if (g_renderer.geometry.normals.maxsize == 0) return;
-    ARRLIST_vec4_clear(&(g_renderer.geometry.normals));
-    g_renderer.geometry.changes.update_normals = TRUE;
-
-}
-
 TriangleID SubmitTriangle(Triangle triangle) {
     g_renderer.geometry.changes.update_triangles = TRUE;
     EZ_ASSERT(triangle.a < g_renderer.geometry.vertices.size &&
               triangle.b < g_renderer.geometry.vertices.size &&
               triangle.c < g_renderer.geometry.vertices.size, "Triangle vertex does not exist");
-    vec3 emission; 
-    glm_vec3_copy(g_renderer.geometry.materials.data[triangle.material].emission, emission);
-    if (emission[0] != 0 || emission[1] != 0 || emission[2] != 0) {
-        ARRLIST_TriangleID_add(&(g_renderer.geometry.emissives), g_renderer.geometry.triangles.size);
-        g_renderer.geometry.lightarea += TriangleArea(
-            g_renderer.geometry.vertices.data[triangle.a],
-            g_renderer.geometry.vertices.data[triangle.b],
-            g_renderer.geometry.vertices.data[triangle.c]);
-    }
     TriangleID id = g_renderer.geometry.triangles.size;
     ARRLIST_Triangle_add(&(g_renderer.geometry.triangles), triangle);
     VertexID vs[] = { triangle.a, triangle.b, triangle.c };
@@ -260,74 +191,8 @@ TriangleID SubmitTriangle(Triangle triangle) {
 void ClearTriangles() {
     if (g_renderer.geometry.triangles.maxsize == 0) return;
     ARRLIST_Triangle_clear(&(g_renderer.geometry.triangles));
-    ARRLIST_TriangleID_clear(&(g_renderer.geometry.emissives));
     HASHMAP_EdgeGlue_clear(&(g_renderer.geometry.glue));
     g_renderer.geometry.changes.update_triangles = TRUE;
-}
-
-LightID SubmitLight(SceneLight light) {
-    char buf[MAX_LIGHT_NAME_SIZE] = { 0 };
-    sprintf(buf, "Light #%d", (int)g_renderer.geometry.lights.size);
-    return SubmitNamedLight(light, buf);
-}
-
-LightID SubmitNamedLight(SceneLight light, const char* name) {
-    ARRLIST_SceneLight_add(&(g_renderer.geometry.lights), light);
-    char* b = EZ_ALLOC(MAX_LIGHT_NAME_SIZE + 1, sizeof(char));
-    strncpy(b, name, MAX_LIGHT_NAME_SIZE);
-    ARRLIST_DynamicString_add(&(g_renderer.geometry.lightnames), b);
-    g_renderer.geometry.changes.update_lights = TRUE;
-    return g_renderer.geometry.lights.size - 1;
-}
-
-char* LightName(LightID lid) {
-    EZ_ASSERT(lid < g_renderer.geometry.lights.size, "Invalid light ID detected");
-    return g_renderer.geometry.lightnames.data[lid];
-}
-
-char** LightNameReference(LightID lid) { 
-    return &(g_renderer.geometry.lightnames.data[lid]);
-}
-
-void ClearLights() {
-    ARRLIST_SceneLight_clear(&(g_renderer.geometry.lights));
-    for (size_t i = 0; i < g_renderer.geometry.lightnames.size; i++)
-        EZ_FREE(g_renderer.geometry.lightnames.data[i]);
-    ARRLIST_DynamicString_clear(&(g_renderer.geometry.lightnames));
-    g_renderer.geometry.changes.update_lights = TRUE;
-}
-
-MaterialID SubmitMaterial(SurfaceMaterial material) {
-    char buf[MAX_MATERIAL_NAME_SIZE] = { 0 };
-    sprintf(buf, "Material #%d", (int)g_renderer.geometry.materials.size);
-    return SubmitNamedMaterial(material, buf);
-}
-
-MaterialID SubmitNamedMaterial(SurfaceMaterial material, const char* name) {
-    ARRLIST_SurfaceMaterial_add(&(g_renderer.geometry.materials), material);
-    char* b = EZ_ALLOC(MAX_MATERIAL_NAME_SIZE + 1, sizeof(char));
-    strncpy(b, name, MAX_MATERIAL_NAME_SIZE);
-    ARRLIST_DynamicString_add(&(g_renderer.geometry.materialnames), b);
-    g_renderer.geometry.changes.update_materials = TRUE;
-    return g_renderer.geometry.materials.size - 1;
-}
-
-char* MaterialName(MaterialID mid) {
-    EZ_ASSERT(mid < g_renderer.geometry.materials.size, "Invalid material ID detected");
-    return g_renderer.geometry.materialnames.data[mid];
-}
-
-char** MaterialNameReference(MaterialID mid) {
-    return &(g_renderer.geometry.materialnames.data[mid]);
-}
-
-void ClearMaterials() {
-    if (g_renderer.geometry.materials.maxsize == 0) return;
-    ARRLIST_SurfaceMaterial_clear(&(g_renderer.geometry.materials));
-    for (size_t i = 0; i < g_renderer.geometry.materialnames.size; i++)
-        EZ_FREE(g_renderer.geometry.materialnames.data[i]);
-    ARRLIST_DynamicString_clear(&(g_renderer.geometry.materialnames));
-    g_renderer.geometry.changes.update_materials = TRUE;
 }
 
 void Render() {
@@ -343,27 +208,10 @@ void Render() {
 
         BOOL descriptor_changes = 
             g_renderer.geometry.changes.update_triangles |
-            g_renderer.geometry.changes.update_materials |
-            g_renderer.geometry.changes.update_lights |
-            g_renderer.geometry.changes.update_vertices |
-            g_renderer.geometry.changes.update_normals;
+            g_renderer.geometry.changes.update_vertices;
 
         // set bvh reconstruction
-        if (g_renderer.geometry.changes.update_vertices || g_renderer.geometry.changes.update_triangles)
-            g_renderer.geometry.changes.update_bvh = CPUSWAP_LENGTH;
-
-        // update normals if needed
-        if (g_renderer.geometry.changes.update_normals) {
-            g_renderer.geometry.changes.update_normals = FALSE;
-            if (g_renderer.geometry.changes.max_normals != g_renderer.geometry.normals.maxsize) {
-                vkDeviceWaitIdle(g_renderer.vulkan.core.general.interface);
-                g_renderer.geometry.changes.max_normals = g_renderer.geometry.normals.maxsize;
-                VCLEAN_Normals(&(g_renderer.vulkan.core.geometry.normals));
-                VINIT_Normals(&(g_renderer.vulkan.core.geometry.normals));
-            } else {
-                VUPDT_Normals(&(g_renderer.vulkan.core.geometry.normals));
-            }
-        }
+        if (descriptor_changes) g_renderer.geometry.changes.update_bvh = CPUSWAP_LENGTH;
 
         // update vertices if needed
         if (g_renderer.geometry.changes.update_vertices) {
@@ -390,40 +238,6 @@ void Render() {
                 VINIT_BVH(&(g_renderer.vulkan.core.geometry.bvh));
             } else {
                 VUPDT_Triangles(&(g_renderer.vulkan.core.geometry.triangles));
-            }
-            if (g_renderer.geometry.changes.max_emissives != g_renderer.geometry.emissives.maxsize) {
-                vkDeviceWaitIdle(g_renderer.vulkan.core.general.interface);
-                g_renderer.geometry.changes.max_emissives = g_renderer.geometry.emissives.maxsize;
-                VCLEAN_Emissives(&(g_renderer.vulkan.core.geometry.emissives));
-                VINIT_Emissives(&(g_renderer.vulkan.core.geometry.emissives));
-            } else {
-                VUPDT_Emissives(&(g_renderer.vulkan.core.geometry.emissives));
-            }
-        }
-
-        // update materials if needed
-        if (g_renderer.geometry.changes.update_materials) {
-            g_renderer.geometry.changes.update_materials = FALSE;
-            if (g_renderer.geometry.changes.max_materials != g_renderer.geometry.materials.maxsize) {
-                vkDeviceWaitIdle(g_renderer.vulkan.core.general.interface);
-                g_renderer.geometry.changes.max_materials = g_renderer.geometry.materials.maxsize;
-                VCLEAN_Materials(&(g_renderer.vulkan.core.geometry.materials));
-                VINIT_Materials(&(g_renderer.vulkan.core.geometry.materials));
-            } else {
-                VUPDT_Materials(&(g_renderer.vulkan.core.geometry.materials));
-            }
-        }
-
-        // update lights if needed
-        if (g_renderer.geometry.changes.update_lights) {
-            g_renderer.geometry.changes.update_lights = FALSE;
-            if (g_renderer.geometry.changes.max_lights != g_renderer.geometry.lights.maxsize) {
-                vkDeviceWaitIdle(g_renderer.vulkan.core.general.interface);
-                g_renderer.geometry.changes.max_lights = g_renderer.geometry.lights.maxsize;
-                VCLEAN_Lights(&(g_renderer.vulkan.core.geometry.lights));
-                VINIT_Lights(&(g_renderer.vulkan.core.geometry.lights));
-            } else {
-                VUPDT_Lights(&(g_renderer.vulkan.core.geometry.lights));
             }
         }
 
@@ -503,10 +317,6 @@ float RenderTime() {
     return ProfileResult(&(g_renderer.stats.profile));
 }
 
-size_t NumNormals() {
-    return g_renderer.geometry.normals.size;
-}
-
 size_t NumVertices() {
     return g_renderer.geometry.vertices.size;
 }
@@ -515,42 +325,8 @@ size_t NumTriangles() {
     return g_renderer.geometry.triangles.size;
 }
 
-size_t NumMaterials() {
-    return g_renderer.geometry.materials.size;
-}
-
-size_t NumEmissives() {
-    return g_renderer.geometry.emissives.size;
-}
-
-void UpdateNormals() {
-    g_renderer.geometry.changes.update_normals = TRUE;
-}
-
 void UpdateVertices() {
     g_renderer.geometry.changes.update_vertices = TRUE;
-}
-
-SurfaceMaterial* MaterialReference(size_t index) {
-    EZ_ASSERT(index < g_renderer.geometry.materials.size, "Invalid material index requested");
-    return &(g_renderer.geometry.materials.data[index]);
-}
-
-void UpdateMaterials() {
-    g_renderer.geometry.changes.update_materials = TRUE;
-}
-
-size_t NumLights() {
-    return g_renderer.geometry.lights.size;
-}
-
-SceneLight* LightReference(size_t index) {
-    EZ_ASSERT(index < g_renderer.geometry.lights.size, "Invalid light index requested");
-    return &(g_renderer.geometry.lights.data[index]);
-}
-
-void UpdateLights() {
-    g_renderer.geometry.changes.update_lights = TRUE;
 }
 
 Vector2 RenderResolution() {
