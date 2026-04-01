@@ -163,7 +163,7 @@ void UpdateViewportPanel(float width, float height) {
     // selection controls
     if (InputButtonPressed(IK_MOUSELEFT) && g_lfocused) {
         switch (GetOverlayMode()) {
-            case TRIANGLE_SELECT_MODE:
+            case TRIANGLE_SELECT_MODE: {
                 TriangleID tindex = HoveredTriangle();
                 if (tindex != (TriangleID)-1) {
                     SetEditTriangle(tindex);
@@ -171,7 +171,8 @@ void UpdateViewportPanel(float width, float height) {
                     DeselectEditTarget();
                 }
                 break;
-            case EDGE_SELECT_MODE:
+            }
+            case EDGE_SELECT_MODE: {
                 Edge edge = HoveredEdge();
                 if (edge.a != (VertexID)-1 && edge.b != (VertexID)-1) {
                     SetEditEdge(edge);
@@ -179,6 +180,7 @@ void UpdateViewportPanel(float width, float height) {
                     DeselectEditTarget();
                 }
                 break;
+            }
             default: break;
         }
     }
