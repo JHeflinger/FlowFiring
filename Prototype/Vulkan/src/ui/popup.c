@@ -109,6 +109,7 @@ int add_toh(size_t x, size_t y, size_t w, size_t h) {
                 }
             }
         }
+        PrimeEdges();
         return 0;
     }
     UISetCursor(xpos + (width / 2) - (button_width / 2), ypos + height - 40);

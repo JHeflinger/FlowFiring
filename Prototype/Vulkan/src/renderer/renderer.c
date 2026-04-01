@@ -41,6 +41,8 @@ void InitializeRenderer() {
     g_renderer.config.grid = TRUE;
     g_renderer.config.async = TRUE;
     g_renderer.config.flags = PREVIEW_PIPELINE_FLAGS;
+    g_renderer.config.orthogonal = FALSE;
+    g_renderer.config.depth = 0.0f;
 
     // initialize min/max BB
     SETVEC3(g_renderer.geometry.bounds.min, FLT_MAX, FLT_MAX, FLT_MAX);
@@ -155,8 +157,8 @@ void SubmitVertex(vec3 vertex) {
 void ClearVertices() {
     if (g_renderer.geometry.vertices.maxsize == 0) return;
     ARRLIST_vec4_clear(&(g_renderer.geometry.vertices));
-    HASHMAP_Locks_clear(&(g_renderer.geometry.locks));
-    ARRLIST_Edge_clear(&(g_renderer.geometry.edges));
+    ARRLIST_EdgeMeta_clear(&(g_renderer.geometry.edges));
+    HASHMAP_EdgeMap_clear(&(g_renderer.geometry.emap));
     g_renderer.geometry.changes.update_vertices = TRUE;
     SETVEC3(g_renderer.geometry.bounds.min, FLT_MAX, FLT_MAX, FLT_MAX);
     SETVEC3(g_renderer.geometry.bounds.max, -FLT_MAX, -FLT_MAX, -FLT_MAX);
@@ -175,14 +177,25 @@ TriangleID SubmitTriangle(Triangle triangle) {
         VertexID b = vs[(i + 1)%3];
         Edge e = { a, b };
         Edge alternate = { b, a };
-        Edge primed = HASHMAP_EdgeGlue_has(&(g_renderer.geometry.glue), e) ? e : alternate;
-        if (!HASHMAP_EdgeGlue_has(&(g_renderer.geometry.glue), primed)) {
-            HASHMAP_EdgeGlue_set(&(g_renderer.geometry.glue), primed, (EdgeMeta){ id, (TriangleID)-1, 0.0f, {0, 0, 0} });
-            ARRLIST_Edge_add(&(g_renderer.geometry.edges), primed);
+        Edge primed = HASHMAP_EdgeMap_has(&(g_renderer.geometry.emap), e) ? e : alternate;
+        if (!HASHMAP_EdgeMap_has(&(g_renderer.geometry.emap), primed)) {
+            EdgeMeta meta = (EdgeMeta) {
+                primed.a, primed.b, (EdgeID)id, (EdgeID)-1, (EdgeID)-1,
+                (EdgeID)-1, (EdgeID)-1, (EdgeID)-1, (EdgeID)-1, (EdgeID)-1, 0 };
+            HASHMAP_EdgeMap_set(&(g_renderer.geometry.emap), primed, g_renderer.geometry.edges.size);
+            ARRLIST_EdgeMeta_add(&(g_renderer.geometry.edges), meta);
         } else {
-            EdgeMeta em = HASHMAP_EdgeGlue_get(&(g_renderer.geometry.glue), primed);
-            em.b = id;
-            HASHMAP_EdgeGlue_set(&(g_renderer.geometry.glue), primed, em);
+            EdgeMeta* em = &(g_renderer.geometry.edges.data[HASHMAP_EdgeMap_get(&(g_renderer.geometry.emap), primed)]);
+            EdgeID* setters[3] = { &(em->f2e1), &(em->f3e1), &(em->f4e1) };
+            BOOL found = FALSE;
+            for (size_t i = 0; i < 3; i++) {
+                if (*setters[i] == (EdgeID)-1) {
+                    *setters[i] = (EdgeID)id;
+                    found = TRUE;
+                    break;
+                }
+            }
+            EZ_ASSERT(found, "Edge metadata has already been primed to degree 4");
         }
     }
     return id;
@@ -191,7 +204,8 @@ TriangleID SubmitTriangle(Triangle triangle) {
 void ClearTriangles() {
     if (g_renderer.geometry.triangles.maxsize == 0) return;
     ARRLIST_Triangle_clear(&(g_renderer.geometry.triangles));
-    HASHMAP_EdgeGlue_clear(&(g_renderer.geometry.glue));
+    HASHMAP_EdgeMap_clear(&(g_renderer.geometry.emap));
+    ARRLIST_EdgeMeta_clear(&(g_renderer.geometry.edges));
     g_renderer.geometry.changes.update_triangles = TRUE;
 }
 
@@ -329,6 +343,33 @@ void UpdateVertices() {
     g_renderer.geometry.changes.update_vertices = TRUE;
 }
 
+void PrimeEdges() {
+    for (size_t i = 0; i < g_renderer.geometry.edges.size; i++) {
+        EdgeMeta* em = &(g_renderer.geometry.edges.data[i]);
+        EdgeID* faces[4] = { &(em->f1e1), &(em->f2e1), &(em->f3e1), &(em->f4e1) };
+        EdgeID* others[4] = { &(em->f1e2), &(em->f2e2), &(em->f3e2), &(em->f4e2) };
+        for (size_t j = 0; j < 4; j++) {
+            if (*faces[j] == (EdgeID)-1) break;
+            Triangle t = g_renderer.geometry.triangles.data[*faces[j]];
+            VertexID vertices[3] = { t.a, t.b, t.c };
+            VertexID overt = (VertexID)-1;
+            for (size_t k = 0; k < 3; k++) {
+                if (vertices[k] != em->a && vertices[k] != em->b) {
+                    overt = vertices[k];
+                    break;
+                }
+            }
+            EZ_ASSERT(overt != (VertexID)-1, "Broken triangle-edge relation detected");
+            Edge e = (Edge){ overt, em->a };
+            Edge primed = HASHMAP_EdgeMap_has(&(g_renderer.geometry.emap), e) ? e : (Edge){ e.b, e.a };
+            *faces[j] = (EdgeID)HASHMAP_EdgeMap_get(&g_renderer.geometry.emap, primed);
+            e = (Edge){ overt, em->b };
+            primed = HASHMAP_EdgeMap_has(&(g_renderer.geometry.emap), e) ? e : (Edge){ e.b, e.a };
+            *others[j] = (EdgeID)HASHMAP_EdgeMap_get(&g_renderer.geometry.emap, primed);
+        }
+    }
+}
+
 Vector2 RenderResolution() {
     return g_renderer.dimensions;
 }
@@ -352,6 +393,16 @@ Triangle* TriangleReference(size_t index) {
 
 void UpdateTriangles() {
     g_renderer.geometry.changes.update_triangles = TRUE;
+}
+
+EdgeMeta* EdgeReference(Edge e) {
+    Edge primed = HASHMAP_EdgeMap_has(&(g_renderer.geometry.emap), e) ? e : (Edge){ e.b, e.a };
+    EZ_ASSERT(HASHMAP_EdgeMap_has(&(g_renderer.geometry.emap), primed), "Cannot get reference of an edge that does not exist");
+    return &(g_renderer.geometry.edges.data[HASHMAP_EdgeMap_get(&(g_renderer.geometry.emap), primed)]);
+}
+
+Edge EdgePrimed(Edge e) {
+    return HASHMAP_EdgeMap_has(&(g_renderer.geometry.emap), e) ? e : (Edge){ e.b, e.a };
 }
 
 void SaveRender(const char* filepath) {

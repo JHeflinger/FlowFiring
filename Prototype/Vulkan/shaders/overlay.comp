@@ -75,6 +75,8 @@ layout(binding = 7) uniform UniformBufferObject {
     float fov;
     float width;
     float height;
+    uint orthogonal;
+    float depth;
 } ubo;
 
 layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
@@ -90,16 +92,25 @@ void calculate_highlight_color() {
 }
 
 Ray create_ray(vec2 rg) {
-	float r = ubo.width / 2.0;
-	float b = ubo.height / 2.0;
-	float l = -1.0 * r;
-	float t = -1.0 * b;
+    float r = ubo.width / 2.0;
+    float b = ubo.height / 2.0;
+    float l = -1.0 * r;
+    float t = -1.0 * b;
     float u = l + ((r - l) * (float(rg.x) + 0.5)) / ubo.width;
     float v = b + ((t - b) * (float(rg.y) + 0.5)) / ubo.height;
-	float d = (cos(ubo.fov / 2.0) / sin(ubo.fov / 2.0)) * r;
+    float d = (cos(ubo.fov / 2.0) / sin(ubo.fov / 2.0)) * r;
     Ray ray;
-    ray.direction = normalize((ubo.u * u) + (ubo.v * v) - (ubo.w * d));
-    ray.position = ubo.position;
+    if (ubo.orthogonal == 1) {
+        float cam_dist = length(ubo.position);
+        float aspect = ubo.width / ubo.height;
+        float u_n = (u / ubo.width) * aspect;
+        float v_n = v / ubo.height;
+        ray.direction = normalize(-ubo.w);
+        ray.position  = ubo.position + (ubo.u * u_n * cam_dist) + (ubo.v * v_n * cam_dist);
+    } else {
+        ray.direction = normalize((ubo.u * u) + (ubo.v * v) - (ubo.w * d));
+        ray.position  = ubo.position;
+    }
     return ray;
 }
 
@@ -214,7 +225,7 @@ void outline_triangle() {
     }
 }
 
-void highlight_edge(uint v1, uint v2) {
+void highlight_edge(uint v1, uint v2, bool orient) {
     if (v1 == -1 || v2 == -1) return;
     uint tid = raygenIn[gl_GlobalInvocationID.x].tid;
     if (tid == -1) return;
@@ -238,13 +249,30 @@ void highlight_edge(uint v1, uint v2) {
     float v = f * dot(ray.direction, q);
     if (v < 0.0 || (u + v) > 1.0) return;
     float w = 1.0 - u - v;
-    float edge_eps = 0.02;
+    float edge_eps = 0.05;
     bool highlight = false;
     if ((v1 == tri.a && v2 == tri.b) || (v1 == tri.b && v2 == tri.a)) highlight = (v < edge_eps);
     else if ((v1 == tri.a && v2 == tri.c) || (v1 == tri.c && v2 == tri.a)) highlight = (u < edge_eps);
     else if ((v1 == tri.b && v2 == tri.c) || (v1 == tri.c && v2 == tri.b)) highlight = (w < edge_eps);
     if (highlight) {
-		imageStore(outputImage, ivec2(rx, ry), highlight_color);
+        vec4 color = highlight_color;
+        if (orient) {
+            float t = 0.0;
+            if ((v1 == tri.a && v2 == tri.b) || (v1 == tri.b && v2 == tri.a)) {
+                t = u / (u + w);
+                if (v1 == tri.b && v2 == tri.a) t = 1.0 - t;
+            }
+            else if ((v1 == tri.a && v2 == tri.c) || (v1 == tri.c && v2 == tri.a)) {
+                t = v / (v + w);
+                if (v1 == tri.c && v2 == tri.a) t = 1.0 - t;
+            }
+            else if ((v1 == tri.b && v2 == tri.c) || (v1 == tri.c && v2 == tri.b)) {
+                t = v / (u + v);
+                if (v1 == tri.c && v2 == tri.b) t = 1.0 - t;
+            }
+            color = mix(vec4(1,0,0,1), vec4(0,0,1,1), t);
+        }
+		imageStore(outputImage, ivec2(rx, ry), color);
     }
 }
 
@@ -256,11 +284,11 @@ void main() {
     else if (o_ubo.mode == VERTEX_SELECT)
         highlight_vertex(hovered_tid, vertex_position);
     else if (o_ubo.mode == EDGE_SELECT)
-        highlight_edge(hovered_edge_v1, hovered_edge_v2);
+        highlight_edge(hovered_edge_v1, hovered_edge_v2, false);
 	if (o_ubo.mode != TRIANGLE_SELECT || hovered_tid != o_ubo.single_selected_tid)
 		highlight_triangle(o_ubo.single_selected_tid);
 	if (o_ubo.mode != VERTEX_SELECT || hovered_tid != o_ubo.single_selected_vid)
 		highlight_vertex(o_ubo.single_selected_vid, selected_vertex_position);
-    if (o_ubo.mode != EDGE_SELECT || (hovered_edge_v1 != o_ubo.single_selected_edge_v1 && hovered_edge_v2 != o_ubo.single_selected_edge_v2))
-        highlight_edge(o_ubo.single_selected_edge_v1, o_ubo.single_selected_edge_v2);
+    if (o_ubo.mode != EDGE_SELECT || (hovered_edge_v1 != o_ubo.single_selected_edge_v1 || hovered_edge_v2 != o_ubo.single_selected_edge_v2))
+        highlight_edge(o_ubo.single_selected_edge_v1, o_ubo.single_selected_edge_v2, true);
 }

@@ -1,5 +1,6 @@
 #include "overlay.h"
 #include "core/binds.h"
+#include "renderer/renderer.h"
 #include <easylogger.h>
 
 Renderer* g_overlay_renderer_ref = NULL;
@@ -91,7 +92,7 @@ Edge HoveredEdge() {
 }
 
 void SetSelectedEdge(Edge edge) {
-    g_single_selected_edge = edge;
+    g_single_selected_edge = EdgePrimed(edge);
 }
 
 Edge GetSelectedEdge() {

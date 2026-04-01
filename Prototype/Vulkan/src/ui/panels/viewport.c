@@ -167,7 +167,6 @@ void UpdateViewportPanel(float width, float height) {
                 TriangleID tindex = HoveredTriangle();
                 if (tindex != (TriangleID)-1) {
                     SetEditTriangle(tindex);
-                    SetSelectedTriangle(tindex);
                 } else {
                     DeselectEditTarget();
                 }
@@ -176,7 +175,6 @@ void UpdateViewportPanel(float width, float height) {
                 Edge edge = HoveredEdge();
                 if (edge.a != (VertexID)-1 && edge.b != (VertexID)-1) {
                     SetEditEdge(edge);
-                    SetSelectedEdge(edge);
                 } else {
                     DeselectEditTarget();
                 }

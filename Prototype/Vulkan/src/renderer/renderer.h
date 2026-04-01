@@ -47,6 +47,8 @@ size_t NumTriangles();
 
 void UpdateVertices();
 
+void PrimeEdges();
+
 Vector2 RenderResolution();
 
 RendererConfig* RenderConfig();
@@ -58,6 +60,10 @@ float RenderFrameTime();
 Triangle* TriangleReference(size_t index);
 
 void UpdateTriangles();
+
+EdgeMeta* EdgeReference(Edge e);
+
+Edge EdgePrimed(Edge e);
 
 void SaveRender(const char* filepath);
 

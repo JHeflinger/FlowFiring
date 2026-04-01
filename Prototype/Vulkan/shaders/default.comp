@@ -49,6 +49,8 @@ layout(binding = 0) uniform UniformBufferObject {
     float fov;
     float width;
     float height;
+    uint orthogonal;
+    float depth;
 } ubo;
 
 layout(binding = 1) buffer RayGeneratorSSBOIn {
@@ -88,16 +90,28 @@ bool cut_viewport(int rx, int ry) {
 }
 
 Ray create_ray(vec2 rg) {
-	float r = ubo.width / 2.0;
-	float b = ubo.height / 2.0;
-	float l = -1.0 * r;
-	float t = -1.0 * b;
+    float r = ubo.width / 2.0;
+    float b = ubo.height / 2.0;
+    float l = -1.0 * r;
+    float t = -1.0 * b;
     float u = l + ((r - l) * (float(rg.x) + 0.5)) / ubo.width;
     float v = b + ((t - b) * (float(rg.y) + 0.5)) / ubo.height;
-	float d = (cos(ubo.fov / 2.0) / sin(ubo.fov / 2.0)) * r;
+    float d = (cos(ubo.fov / 2.0) / sin(ubo.fov / 2.0)) * r;
     Ray ray;
-    ray.direction = normalize((ubo.u * u) + (ubo.v * v) - (ubo.w * d));
-    ray.position = ubo.position;
+    if (ubo.orthogonal == 1) {
+        float cam_dist = length(ubo.position);
+        float aspect = ubo.width / ubo.height;
+        float u_n = (u / ubo.width) * aspect;
+        float v_n = v / ubo.height;
+        ray.direction = normalize(-ubo.w);
+        ray.position  = ubo.position + (ubo.u * u_n * cam_dist) + (ubo.v * v_n * cam_dist);
+        ray.position -= ubo.w * ubo.depth;
+    } else {
+        ray.direction = normalize((ubo.u * u) + (ubo.v * v) - (ubo.w * d));
+        ray.position  = ubo.position;
+        float w_component = dot(ray.direction, -ubo.w);
+        ray.position += ray.direction * (ubo.depth / w_component);
+    }
     return ray;
 }
 

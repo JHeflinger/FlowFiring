@@ -4,16 +4,17 @@
 3. mark hole - DONE
 4. select edges - DONE
 5. set edge values
-    5a. override and generate edges and edgemap
-    5b. determine edge orientation
-    5c. color edge orientation
-    5d. set edge values
-6. orthogonal camera
-7. cross sections
+    5a. override and generate edges and edgemap - DONE
+    5b. determine edge orientation - DONE
+    5c. color edge orientation - DONE
+    5d. set edge values - DONE
+6. orthogonal camera - DONE
+7. cross sections - DONE
 ------ bare minimum goal today ------
 8. simulate
 9. render heatmap
 10. select vertex and display inflow and outflow
+11. conservative inflow/outflow checker
 
 Alternate forms of visualization:
 1. heatmap

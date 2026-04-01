@@ -522,6 +522,42 @@ BOOL UIDragUIntLabeled_(PersistantUIData* data, const char* label, uint32_t* val
     return UIDragUInt_(data, value, min, max, speed, w - 5 - xdif);
 }
 
+BOOL UIDragInt_(PersistantUIData* data, int32_t* value, int32_t min, int32_t max, int32_t speed, size_t w) {
+    BOOL ret = FALSE;
+    if (InputButtonPressed(IK_MOUSELEFT) &&
+        CheckCollisionPointRec(
+            GetMousePosition(),
+            (Rectangle){g_ui_cursor.x + g_ui_position.x, g_ui_cursor.y + g_ui_position.y + 2, w, LINE_HEIGHT - 4})) {
+        g_active_ui_element = data;
+    }
+    if (g_active_ui_element == data) {
+        int32_t prev = *value;
+        if (GetMouseDelta().x * speed < 0 && GetMouseDelta().x * speed * -1 > *value)
+            *value = 0;
+        else
+            *value += GetMouseDelta().x * speed;
+        if (*value < min) *value = min;
+        if (*value > max) *value = max;
+        if (prev != *value) ret = TRUE;
+        g_was_ui_element_just_used = TRUE;
+    }
+    char buffer[32] = { 0 };
+    snprintf(buffer, 32, "%lld", (long long int)(*value));
+    Vector2 text_size = MeasureTextEx(FontAsset(), buffer, LINE_HEIGHT, 0);
+    DrawRectangle(g_ui_cursor.x, g_ui_cursor.y + 1, w, LINE_HEIGHT - 2, MappedColor(UI_DRAG_INT_COLOR));
+    DrawTextEx(FontAsset(), buffer, (Vector2){ g_ui_cursor.x + (w/2) - (text_size.x/2), g_ui_cursor.y }, LINE_HEIGHT, 0, MappedColor(UI_TEXT_COLOR));
+    g_ui_cursor.y += LINE_HEIGHT;
+    g_ui_cursor.x = 10;
+    return ret;
+}
+
+BOOL UIDragIntLabeled_(PersistantUIData* data, const char* label, int32_t* value, int32_t min, int32_t max, int32_t speed, size_t w) {
+    UIDrawText(label);
+    float xdif = MeasureTextEx(FontAsset(), label, LINE_HEIGHT, 0).x;
+    UIMoveCursor(xdif + 5, -LINE_HEIGHT);
+    return UIDragInt_(data, value, min, max, speed, w - 5 - xdif);
+}
+
 BOOL UIButton(const char* label, size_t w) {
     Vector2 text_size = MeasureTextEx(FontAsset(), label, LINE_HEIGHT, 0);
     float button_width = w < text_size.x + 20 ? text_size.x + 20 : w;

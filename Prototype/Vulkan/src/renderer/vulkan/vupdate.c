@@ -229,6 +229,8 @@ void VUPDT_UniformBuffers(UBOArray* ubos) {
         ubo.viewport[0] = g_vupdt_renderer_ref->viewport.x;
         ubo.viewport[1] = g_vupdt_renderer_ref->viewport.y;
         ubo.grid = (uint32_t)g_vupdt_renderer_ref->config.grid;
+        ubo.orthogonal = (uint32_t)g_vupdt_renderer_ref->config.orthogonal;
+        ubo.depth = g_vupdt_renderer_ref->config.depth;
         memcpy(ubos->mapped[g_vupdt_renderer_ref->swapchain.index], &ubo, sizeof(UniformBufferObject));
     }
 

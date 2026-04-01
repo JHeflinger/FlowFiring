@@ -114,6 +114,14 @@ BOOL UIDragUIntLabeled_(PersistantUIData* data, const char* label, uint32_t* val
 #define UIDragUIntLabeled(label, value, min, max, speed, w) \
     PERSISTANT_UI(UIDragUIntLabeled_, label, value, min, max, speed, w)
 
+BOOL UIDragInt_(PersistantUIData* data, int32_t* value, int32_t min, int32_t max, int32_t speed, size_t w);
+#define UIDragInt(value, min, max, speed, w) \
+    PERSISTANT_UI(UIDragInt_, value, min, max, speed, w)
+
+BOOL UIDragIntLabeled_(PersistantUIData* data, const char* label, int32_t* value, int32_t min, int32_t max, int32_t speed, size_t w);
+#define UIDragIntLabeled(label, value, min, max, speed, w) \
+    PERSISTANT_UI(UIDragIntLabeled_, label, value, min, max, speed, w)
+
 BOOL UIButton(const char* label, size_t w);
 
 void UIPopup(Popup* popup);

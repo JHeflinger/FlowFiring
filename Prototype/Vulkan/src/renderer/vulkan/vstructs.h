@@ -30,6 +30,8 @@ typedef struct {
     alignas(4) float fov;
     alignas(4) float width;
     alignas(4) float height;
+    alignas(4) uint32_t orthogonal;
+    alignas(4) float depth;
 } UniformBufferObject;
 
 typedef struct {

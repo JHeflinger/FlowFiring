@@ -21,6 +21,7 @@ void SetEditTriangle(size_t index) {
     g_edit_type = EDIT_SINGLE_TRIANGLE;
     SetSelectedVertex((VertexID)-1);
     SetSelectedEdge((Edge){ (VertexID)-1, (VertexID)-1 });
+    SetSelectedTriangle(index);
 }
 
 void SetEditEdge(Edge edge) {
@@ -30,6 +31,7 @@ void SetEditEdge(Edge edge) {
     g_edit_type = EDIT_SINGLE_EDGE;
     SetSelectedVertex((VertexID)-1);
     SetSelectedTriangle((TriangleID)-1);
+    SetSelectedEdge(edge);
 }
 
 void DeselectEditTarget() {
@@ -40,7 +42,7 @@ void DeselectEditTarget() {
 }
 
 void DrawEditPanel(float width, float height) {
-    //float sboxwidth = width - 20 - 140;
+    float sboxwidth = width - 20 - 140;
     BOOL changed = FALSE;
     if (g_item_selected) {
         if (g_edit_type == EDIT_SINGLE_TRIANGLE) {
@@ -57,7 +59,15 @@ void DrawEditPanel(float width, float height) {
             ref->hole = hole;
             if (changed) UpdateTriangles();
         } else if (g_edit_type == EDIT_SINGLE_EDGE) {
-            UIDrawText("TODO");
+            EdgeMeta* ref = EdgeReference((Edge){ g_edit_item_index, g_edit_item_index_2 });
+            UIMoveCursor((width - 20 - UITextWidth("Edit Edge")) / 2.0f, 0);
+            UIDrawText("Edit Edge");
+            UIDivider(width - 20);
+            UIMoveCursor(0, 10);
+            UIDrawText("Flow");
+            UIMoveCursor(140, -20);
+            changed |= UIDragInt(&(ref->flow), INT32_MIN, INT32_MAX, 1, sboxwidth);
+            //if (changed) UpdateEdges();
         } else {
             EZ_FATAL("Unhandled edit type detected");
         }

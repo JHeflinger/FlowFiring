@@ -11,7 +11,7 @@
 
 typedef uint32_t TriangleID;
 typedef uint32_t VertexID;
-typedef uint32_t LightID;
+typedef uint32_t EdgeID;
 
 typedef struct {
     VertexID a;
@@ -19,18 +19,24 @@ typedef struct {
 } Edge;
 
 typedef struct {
-    TriangleID a;
-    TriangleID b;
-    float weight;
-    vec3 pij;
+    alignas(4) VertexID a;
+    alignas(4) VertexID b;
+    alignas(4) EdgeID f1e1;
+    alignas(4) EdgeID f1e2;
+    alignas(4) EdgeID f2e1;
+    alignas(4) EdgeID f2e2;
+    alignas(4) EdgeID f3e1;
+    alignas(4) EdgeID f3e2;
+    alignas(4) EdgeID f4e1;
+    alignas(4) EdgeID f4e2;
+    alignas(4) int32_t flow;
 } EdgeMeta;
 
-DECLARE_ARRLIST(Edge);
+DECLARE_ARRLIST(EdgeMeta);
 DECLARE_ARRLIST(TriangleID);
 DECLARE_ARR_ARRLIST(vec4);
 DECLARE_ARR_ARRLIST(vec3);
-DECLARE_HASHMAP(VertexID, BOOL, Locks);
-DECLARE_HASHMAP(Edge, EdgeMeta, EdgeGlue);
+DECLARE_HASHMAP(Edge, size_t, EdgeMap);
 
 #define PREVIEW_PIPELINE_FLAGS   0b1111111111
 #define BVH_PIPELINE_FLAGS       0b0001111111
@@ -118,9 +124,8 @@ typedef struct {
 typedef struct {
     ARRLIST_vec4 vertices;
     ARRLIST_Triangle triangles;
-    HASHMAP_Locks locks;
-    HASHMAP_EdgeGlue glue;
-    ARRLIST_Edge edges;
+    HASHMAP_EdgeMap emap;
+    ARRLIST_EdgeMeta edges;
     float lightarea;
     ChangeSet changes;
     AxisAlignedBoundingBox bounds;
@@ -129,6 +134,8 @@ typedef struct {
 typedef struct {
     BOOL grid;
     BOOL async;
+    BOOL orthogonal;
+    float depth;
     PipelineFlags flags;
 } RendererConfig;
 
