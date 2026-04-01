@@ -3,6 +3,7 @@
 #define MAX_RECURSIVE_DEPTH 500
 #define AO_DIST 0.5
 #define EPS 0.000001
+#define EDGE_RADIUS 0.05
 
 struct BVHNode {
     vec3 minBB;
@@ -36,6 +37,20 @@ struct Triangle {
     uint c;
 };
 
+struct Edge {
+    uint a;
+    uint b;
+    uint f1e1;
+    uint f1e2;
+    uint f2e1;
+    uint f2e2;
+    uint f3e1;
+    uint f3e2;
+    uint f4e1;
+    uint f4e2;
+    int flow;
+};
+
 layout(binding = 0) uniform UniformBufferObject {
     vec3 look;
     vec3 position;
@@ -51,6 +66,7 @@ layout(binding = 0) uniform UniformBufferObject {
     float height;
     uint orthogonal;
     float depth;
+    uint edgemode;
 } ubo;
 
 layout(binding = 1) buffer RayGeneratorSSBOIn {
@@ -69,6 +85,10 @@ layout(binding = 4) readonly buffer VertexSSBOIn {
 
 layout(binding = 5) buffer BVHNodeSSBOIn {
     BVHNode nodeIn[ ];
+};
+
+layout(binding = 6) readonly buffer EdgeSSBOIn {
+    Edge edgeIn[ ];
 };
 
 layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
@@ -140,6 +160,36 @@ bool triangle_intersect(Ray ray, uint triangle_ind, inout Hit hit) {
     return true;
 }
 
+bool edge_intersect(Ray ray, uint edge_ind, inout Hit hit) {
+    Edge edge = edgeIn[edge_ind];
+    vec3 pa = vertexIn[edge.a];
+    vec3 pb = vertexIn[edge.b];
+    vec3 ab = pb - pa;
+    vec3 ao = ray.position - pa;
+    vec3 ab_n = normalize(ab);
+    vec3 d = ray.direction - dot(ray.direction, ab_n) * ab_n;
+    vec3 o = ao - dot(ao, ab_n) * ab_n;
+    float a = dot(d, d);
+    if (a < EPS) return false;
+    float b = 2.0 * dot(d, o);
+    float c = dot(o, o) - (EDGE_RADIUS * EDGE_RADIUS);
+    float discriminant = b*b - 4.0*a*c;
+    if (discriminant < 0.0) return false;
+    float t = (-b - sqrt(discriminant)) / (2.0 * a);
+    if (t <= EPS) {
+        t = (-b + sqrt(discriminant)) / (2.0 * a);
+        if (t <= EPS) return false;
+    }
+    vec3 hit_pos = ray.position + ray.direction * t;
+    float proj = dot(hit_pos - pa, ab_n);
+    if (proj < 0.0 || proj > length(ab)) return false;
+    hit.distance = t;
+    hit.position = hit_pos;
+    vec3 axis_point = pa + ab_n * proj;
+    hit.normal = normalize(hit_pos - axis_point);
+    return true;
+}
+
 bool aabb_intersect(Ray ray, uint node_ind) {
 	vec3 dfrac = 1.0 / ray.direction;
     vec3 mindif = (nodeIn[node_ind].minBB - ray.position)*dfrac;
@@ -162,11 +212,20 @@ Hit trace(Ray ray, inout uint hit_id) {
         if (stack_ptr >= MAX_RECURSIVE_DEPTH - 1) { stack_failure = true; break; }
         if (!aabb_intersect(ray, node_index)) continue;
         if (node.right == 0xFFFFFFFF) {
-            Hit trihit;
-            if (triangle_intersect(ray, node.left, trihit)) {
-                if (hit.distance == -1.0 || trihit.distance < hit.distance) {
-                    hit = trihit;
-					hit_id = node.left;
+            Hit _hit;
+            if (ubo.edgemode != 0) {
+                if (edge_intersect(ray, node.left, _hit)) {
+                    if (hit.distance == -1.0 || _hit.distance < hit.distance) {
+                        hit = _hit;
+    					//hit_id = node.left; TODO: reimplement after overlay is modified for edges
+                    }
+                }
+            } else {
+                if (triangle_intersect(ray, node.left, _hit)) {
+                    if (hit.distance == -1.0 || _hit.distance < hit.distance) {
+                        hit = _hit;
+    					hit_id = node.left;
+                    }
                 }
             }
         } else {

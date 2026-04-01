@@ -12,6 +12,10 @@
 7. cross sections - DONE
 ------ bare minimum goal today ------
 8. simulate
+    8a. edge bvh - DONE
+    8b. render edges - DONE
+    8c. simulate edges
+    8d. select edges from edgemode
 9. render heatmap
 10. select vertex and display inflow and outflow
 11. conservative inflow/outflow checker
@@ -19,3 +23,4 @@
 Alternate forms of visualization:
 1. heatmap
 2. replace edges with dots
+3. interpolated edge colors onto faces

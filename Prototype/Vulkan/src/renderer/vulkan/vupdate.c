@@ -18,6 +18,15 @@ void VUPDT_Vertices(VulkanDataBuffer* vertices) {
         vertices->buffer);
 }
 
+void VUPDT_Edges(VulkanDataBuffer* edges) {
+    if (sizeof(EdgeMeta) * g_vupdt_renderer_ref->geometry.edges.maxsize == 0) return;
+    VUTIL_CopyHostToBuffer(
+        g_vupdt_renderer_ref->geometry.edges.data,
+        sizeof(EdgeMeta) * g_vupdt_renderer_ref->geometry.edges.size,
+        sizeof(EdgeMeta) * g_vupdt_renderer_ref->geometry.edges.maxsize,
+        edges->buffer);
+}
+
 void VUPDT_Triangles(VulkanDataBuffer* triangles) {
     if (sizeof(Triangle) * g_vupdt_renderer_ref->geometry.triangles.maxsize == 0) return;
     VUTIL_CopyHostToBuffer(
@@ -59,12 +68,22 @@ void VUPDT_RecordCommand(VkCommandBuffer command) {
             ((1u << i) & LEAVES_SHADER_FLAG) ||
             ((1u << i) & BVH_SHADER_FLAG) ||
             ((1u << i) & REBIND_SHADER_FLAG)){
-            invocations = g_vupdt_renderer_ref->geometry.triangles.size;
-            _record_push_constants(g_vupdt_renderer_ref->geometry.triangles.size);
+            if (g_vupdt_renderer_ref->config.edgemode) {
+                invocations = g_vupdt_renderer_ref->geometry.edges.size;
+                _record_push_constants(g_vupdt_renderer_ref->geometry.edges.size);
+            } else {
+                invocations = g_vupdt_renderer_ref->geometry.triangles.size;
+                _record_push_constants(g_vupdt_renderer_ref->geometry.triangles.size);
+            }
         }
 
         if ((1u << i) & HISTORY_SHADER_FLAG) {
-            uint32_t wg = ceil(g_vupdt_renderer_ref->geometry.triangles.size / ((float)INVOCATION_GROUP_SIZE));
+            uint32_t wg;
+            if (g_vupdt_renderer_ref->config.edgemode) {
+                wg = ceil(g_vupdt_renderer_ref->geometry.edges.size / ((float)INVOCATION_GROUP_SIZE));
+            } else {
+                wg = ceil(g_vupdt_renderer_ref->geometry.triangles.size / ((float)INVOCATION_GROUP_SIZE));
+            }
             invocations = wg*16;
             _record_push_constants(wg);
         }
@@ -231,6 +250,7 @@ void VUPDT_UniformBuffers(UBOArray* ubos) {
         ubo.grid = (uint32_t)g_vupdt_renderer_ref->config.grid;
         ubo.orthogonal = (uint32_t)g_vupdt_renderer_ref->config.orthogonal;
         ubo.depth = g_vupdt_renderer_ref->config.depth;
+        ubo.edgemode = (uint32_t)g_vupdt_renderer_ref->config.edgemode;
         memcpy(ubos->mapped[g_vupdt_renderer_ref->swapchain.index], &ubo, sizeof(UniformBufferObject));
     }
 

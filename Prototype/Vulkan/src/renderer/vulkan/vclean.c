@@ -29,13 +29,19 @@ void VCLEAN_Vertices(VulkanDataBuffer* vertices) {
     VUTIL_DestroyBuffer(*vertices);
 }
 
+void VCLEAN_Edges(VulkanDataBuffer* edges) {
+    VUTIL_DestroyBuffer(*edges);
+}
+
 void VCLEAN_Triangles(VulkanDataBuffer* triangles) {
     VUTIL_DestroyBuffer(*triangles);
 }
 
 void VCLEAN_Geometry(VulkanGeometry* geometry) {
     VCLEAN_BVH(&(geometry->bvh));
+    VCLEAN_BVH(&(geometry->edge_bvh));
     VCLEAN_Vertices(&(geometry->vertices));
+    VCLEAN_Edges(&(geometry->edges));
     VCLEAN_Triangles(&(geometry->triangles));
 }
 

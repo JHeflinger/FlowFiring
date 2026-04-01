@@ -103,8 +103,10 @@ typedef struct {
 typedef struct {
     size_t max_vertices;
     size_t max_triangles;
+    size_t max_edges;
     BOOL update_vertices;
     BOOL update_triangles;
+    BOOL update_edges;
     size_t update_bvh;
 } ChangeSet;
 
@@ -126,6 +128,7 @@ typedef struct {
     ARRLIST_Triangle triangles;
     HASHMAP_EdgeMap emap;
     ARRLIST_EdgeMeta edges;
+    uint32_t offsets[3];
     float lightarea;
     ChangeSet changes;
     AxisAlignedBoundingBox bounds;
@@ -135,6 +138,7 @@ typedef struct {
     BOOL grid;
     BOOL async;
     BOOL orthogonal;
+    BOOL edgemode;
     float depth;
     PipelineFlags flags;
 } RendererConfig;

@@ -9,6 +9,8 @@ void VCLEAN_BVH(VulkanBVH* bvh);
 
 void VCLEAN_Vertices(VulkanDataBuffer* vertices);
 
+void VCLEAN_Edges(VulkanDataBuffer* edges);
+
 void VCLEAN_Triangles(VulkanDataBuffer* triangles);
 
 void VCLEAN_Geometry(VulkanGeometry* geometry);

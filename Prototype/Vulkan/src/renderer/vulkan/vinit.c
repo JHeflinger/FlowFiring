@@ -443,6 +443,90 @@ BOOL VINIT_BVH(VulkanBVH* bvh) {
     return TRUE;
 }
 
+BOOL VINIT_EdgeBVH(VulkanBVH* bvh) {
+    // workgroup history
+    size_t arrsize = 16 * sizeof(uint32_t) * ceil(g_vinit_renderer_ref->geometry.edges.maxsize / (float)INVOCATION_GROUP_SIZE);
+    arrsize = arrsize > 0 ? arrsize : 1;
+    VUTIL_CreateBuffer(
+        arrsize,
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        &(bvh->workhistory));
+
+    // workgroup offsets
+    arrsize = 16 * sizeof(uint32_t) * ceil(g_vinit_renderer_ref->geometry.edges.maxsize / (float)INVOCATION_GROUP_SIZE);
+    arrsize = arrsize > 0 ? arrsize : 1;
+    VUTIL_CreateBuffer(
+        arrsize,
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        &(bvh->workoffsets));
+
+    // mortons
+    arrsize = sizeof(uint32_t) * g_vinit_renderer_ref->geometry.edges.maxsize;
+    arrsize = arrsize > 0 ? arrsize : 1;
+    VUTIL_CreateBuffer(
+        arrsize,
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        &(bvh->mortons));
+
+    // indices
+    arrsize = sizeof(uint32_t) * g_vinit_renderer_ref->geometry.edges.maxsize;
+    arrsize = arrsize > 0 ? arrsize : 1;
+    VUTIL_CreateBuffer(
+        arrsize,
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        &(bvh->indices));
+
+    // morton swap
+    arrsize = sizeof(uint32_t) * g_vinit_renderer_ref->geometry.edges.maxsize;
+    arrsize = arrsize > 0 ? arrsize : 1;
+    VUTIL_CreateBuffer(
+        arrsize,
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        &(bvh->mortonswap));
+
+    // index swap
+    arrsize = sizeof(uint32_t) * g_vinit_renderer_ref->geometry.edges.maxsize;
+    arrsize = arrsize > 0 ? arrsize : 1;
+    VUTIL_CreateBuffer(
+        arrsize,
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        &(bvh->indexswap));
+
+    // bounding boxes
+    arrsize = sizeof(AxisAlignedBoundingBox) * g_vinit_renderer_ref->geometry.edges.maxsize;
+    arrsize = arrsize > 0 ? arrsize : 1;
+    VUTIL_CreateBuffer(
+        arrsize,
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        &(bvh->boundingboxes));
+
+    // nodes
+    arrsize = sizeof(BVHNode) * g_vinit_renderer_ref->geometry.edges.maxsize * 2;
+    arrsize = arrsize > 0 ? arrsize : 1;
+    VUTIL_CreateBuffer(
+        arrsize,
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        &(bvh->nodes));
+
+    // buckets
+    arrsize = sizeof(uint32_t) * 16;
+    VUTIL_CreateBuffer(
+        arrsize,
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        &(bvh->buckets));
+
+    return TRUE;
+}
+
 BOOL VINIT_Vertices(VulkanDataBuffer* vertices) {
     size_t arrsize = sizeof(vec4) * g_vinit_renderer_ref->geometry.vertices.maxsize;
     arrsize = arrsize > 0 ? arrsize : 1;
@@ -452,6 +536,18 @@ BOOL VINIT_Vertices(VulkanDataBuffer* vertices) {
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
         vertices);
     VUPDT_Vertices(vertices);
+    return TRUE;
+}
+
+BOOL VINIT_Edges(VulkanDataBuffer* edges) {
+    size_t arrsize = sizeof(EdgeMeta) * g_vinit_renderer_ref->geometry.edges.maxsize;
+    arrsize = arrsize > 0 ? arrsize : 1;
+    VUTIL_CreateBuffer(
+        arrsize,
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        edges);
+    VUPDT_Edges(edges);
     return TRUE;
 }
 
@@ -626,7 +722,9 @@ BOOL VINIT_General(VulkanGeneral* general) {
 
 BOOL VINIT_Geometry(VulkanGeometry* geometry) {
     if (!VINIT_BVH(&(geometry->bvh))) return FALSE;
+    if (!VINIT_EdgeBVH(&(geometry->edge_bvh))) return FALSE;
     if (!VINIT_Vertices(&(geometry->vertices))) return FALSE;
+    if (!VINIT_Edges(&(geometry->edges))) return FALSE;
 	if (!VINIT_Triangles(&(geometry->triangles))) return FALSE;
     return TRUE;
 }

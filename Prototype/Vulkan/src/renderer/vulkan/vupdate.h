@@ -5,6 +5,8 @@
 
 void VUPDT_Vertices(VulkanDataBuffer* vertices);
 
+void VUPDT_Edges(VulkanDataBuffer* edges);
+
 void VUPDT_Triangles(VulkanDataBuffer* triangles);
 
 void VUPDT_RecordCommand(VkCommandBuffer command);

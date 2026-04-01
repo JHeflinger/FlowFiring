@@ -68,6 +68,7 @@ void DrawDevPanel(float width, float height) {
     UIDrawText("Render Resolution: %dx%d", (int)RenderResolution().x, (int)RenderResolution().y);
 	UICheckboxLabeled("Orthogonal Camera:", &RenderConfig()->orthogonal);
 	UICheckboxLabeled("Enable grid:", &RenderConfig()->grid);
+	UICheckboxLabeled("Show edges only:", &RenderConfig()->edgemode);
 
     UIMoveCursor(0, 20);
 	UIDragFloatLabeled("Cross section depth:", &RenderConfig()->depth, 0.0f, FLT_MAX, 0.01f, 300);

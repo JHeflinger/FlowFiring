@@ -14,6 +14,7 @@
 Renderer g_renderer = { 0 };
 Vector2 g_override_resolution = { 0 };
 float g_rft = 0.0f;
+BOOL g_prevmode = FALSE;
 
 PipelineFlags GetPipelineFlags() {
     return g_renderer.config.flags;
@@ -43,6 +44,7 @@ void InitializeRenderer() {
     g_renderer.config.flags = PREVIEW_PIPELINE_FLAGS;
     g_renderer.config.orthogonal = FALSE;
     g_renderer.config.depth = 0.0f;
+    g_renderer.config.edgemode = FALSE;
 
     // initialize min/max BB
     SETVEC3(g_renderer.geometry.bounds.min, FLT_MAX, FLT_MAX, FLT_MAX);
@@ -211,6 +213,18 @@ void ClearTriangles() {
 
 void Render() {
     static BOOL async_update = TRUE;
+    if (g_prevmode != g_renderer.config.edgemode) {
+        VCLEAN_Shaders(&(g_renderer.vulkan.core.shaders));
+        VINIT_Shaders(&(g_renderer.vulkan.core.shaders));
+        vkDeviceWaitIdle(g_renderer.vulkan.core.general.interface);
+        VCLEAN_BVH(&(g_renderer.vulkan.core.geometry.bvh));
+        VINIT_BVH(&(g_renderer.vulkan.core.geometry.bvh));
+        VCLEAN_BVH(&(g_renderer.vulkan.core.geometry.edge_bvh));
+        VINIT_BVH(&(g_renderer.vulkan.core.geometry.edge_bvh));
+        VUPDT_DescriptorSets(g_renderer.vulkan.core.context.renderdata.descriptors);
+        g_renderer.geometry.changes.update_bvh = CPUSWAP_LENGTH;
+    }
+    g_prevmode = g_renderer.config.edgemode;
 
     // update render frame time;
     g_rft += GetFrameTime();
@@ -222,7 +236,8 @@ void Render() {
 
         BOOL descriptor_changes = 
             g_renderer.geometry.changes.update_triangles |
-            g_renderer.geometry.changes.update_vertices;
+            g_renderer.geometry.changes.update_vertices |
+            g_renderer.geometry.changes.update_edges;
 
         // set bvh reconstruction
         if (descriptor_changes) g_renderer.geometry.changes.update_bvh = CPUSWAP_LENGTH;
@@ -237,6 +252,21 @@ void Render() {
                 VINIT_Vertices(&(g_renderer.vulkan.core.geometry.vertices));
             } else {
                 VUPDT_Vertices(&(g_renderer.vulkan.core.geometry.vertices));
+            }
+        }
+
+        // update edges if needed
+        if (g_renderer.geometry.changes.update_edges) {
+            g_renderer.geometry.changes.update_edges = FALSE;
+            if (g_renderer.geometry.changes.max_edges != g_renderer.geometry.edges.maxsize) {
+                vkDeviceWaitIdle(g_renderer.vulkan.core.general.interface);
+                g_renderer.geometry.changes.max_edges = g_renderer.geometry.edges.maxsize;
+                VCLEAN_Edges(&(g_renderer.vulkan.core.geometry.edges));
+                VINIT_Edges(&(g_renderer.vulkan.core.geometry.edges));
+                VCLEAN_BVH(&(g_renderer.vulkan.core.geometry.edge_bvh));
+                VINIT_BVH(&(g_renderer.vulkan.core.geometry.edge_bvh));
+            } else {
+                VUPDT_Edges(&(g_renderer.vulkan.core.geometry.edges));
             }
         }
 
@@ -344,6 +374,41 @@ void UpdateVertices() {
 }
 
 void PrimeEdges() {
+    ARRLIST_EdgeMeta groups[4] = { 0 };
+    for (size_t i = 0; i < g_renderer.geometry.edges.size; i++) {
+        EdgeMeta* em = &(g_renderer.geometry.edges.data[i]);
+        vec3 a, b;
+        GetVertex(em->a, a);
+        GetVertex(em->b, b);
+        int c = 0;
+        if (a[0] == b[0]) { ARRLIST_EdgeMeta_add(&(groups[0]), *em); c++; }
+        if (a[2] == b[2]) { ARRLIST_EdgeMeta_add(&(groups[1]), *em); c++; }
+        if ((a[0] < b[0] && a[2] < b[2]) || (a[0] > b[0] && a[2] > b[2])) { ARRLIST_EdgeMeta_add(&(groups[2]), *em); c++; }
+        if ((a[0] > b[0] && a[2] < b[2]) || (a[0] < b[0] && a[2] > b[2])) { ARRLIST_EdgeMeta_add(&(groups[3]), *em); c++; }
+        EZ_ASSERT(c == 1, "Unstable edge uniqueness detected");
+    }
+    size_t totalsize = groups[0].size + groups[1].size + groups[2].size + groups[3].size;
+    EZ_ASSERT(totalsize == g_renderer.geometry.edges.size, "Groups were not uniquely constructed");
+    for (size_t i = 0; i < 3; i++) g_renderer.geometry.offsets[i] = groups[i].size;
+    size_t backoff = 0;
+    size_t currgroup = 0;
+    size_t mapsize = g_renderer.geometry.emap.size;
+    HASHMAP_EdgeMap_clear(&(g_renderer.geometry.emap));
+    for (size_t i = 0; i < totalsize; i++) {
+        size_t index = i - backoff;
+        if (index >= groups[currgroup].size) {
+            backoff += groups[currgroup].size;
+            currgroup++;
+            index = i - backoff;
+        }
+        EdgeMeta em = groups[currgroup].data[index];
+        g_renderer.geometry.edges.data[i] = em;
+        EZ_ASSERT(em.a < g_renderer.geometry.vertices.size, "Invalid vertex detected \"%d\"", (int)em.a);
+        EZ_ASSERT(em.b < g_renderer.geometry.vertices.size, "Invalid vertex detected \"%d\"", (int)em.b);
+        HASHMAP_EdgeMap_set(&(g_renderer.geometry.emap), EdgePrimed((Edge){ em.a, em.b }), i);
+    }
+    EZ_ASSERT(g_renderer.geometry.emap.size == mapsize, "Edge map grew unnaturally during priming");
+    for (size_t i = 0; i < 4; i++) ARRLIST_EdgeMeta_clear(&(groups[i]));
     for (size_t i = 0; i < g_renderer.geometry.edges.size; i++) {
         EdgeMeta* em = &(g_renderer.geometry.edges.data[i]);
         EdgeID* faces[4] = { &(em->f1e1), &(em->f2e1), &(em->f3e1), &(em->f4e1) };
@@ -368,6 +433,11 @@ void PrimeEdges() {
             *others[j] = (EdgeID)HASHMAP_EdgeMap_get(&g_renderer.geometry.emap, primed);
         }
     }
+    UpdateEdges();
+}
+
+void UpdateEdges() {
+    g_renderer.geometry.changes.update_edges = TRUE;
 }
 
 Vector2 RenderResolution() {

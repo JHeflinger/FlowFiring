@@ -65,6 +65,8 @@ EdgeMeta* EdgeReference(Edge e);
 
 Edge EdgePrimed(Edge e);
 
+void UpdateEdges();
+
 void SaveRender(const char* filepath);
 
 char* GPUModel();

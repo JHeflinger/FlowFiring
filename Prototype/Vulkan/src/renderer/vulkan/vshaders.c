@@ -121,141 +121,309 @@ VulkanBoundVariable get_bound_variable(Renderer* renderer, const char* name, siz
 				sizeof(vec4)
 			}
 		};
+	} else if (strcmp(name, "EdgeSSBOIn") == 0) {
+		return (VulkanBoundVariable) {
+			STORAGE_BUFFER,
+			(SchrodingRef) {
+				TRUE,
+				&(renderer->vulkan.core.geometry.edges.buffer)
+			},
+			(SchrodingSize) {
+				(SchrodingRef) {
+					TRUE,
+					&(renderer->geometry.edges.size)
+				}, 0.0f,
+				sizeof(EdgeMeta)
+			}
+		};
 	} else if (strcmp(name, "WorkGroupOffsetSSBOIn") == 0) {
-		return (VulkanBoundVariable) {
-			STORAGE_BUFFER,
-			(SchrodingRef) {
-				TRUE,
-				&(renderer->vulkan.core.geometry.bvh.workoffsets.buffer)
-			},
-			(SchrodingSize) {
-				(SchrodingRef) {
-					TRUE,
-					&(renderer->geometry.triangles.size)
-				}, INVOCATION_GROUP_SIZE,
-				sizeof(uint32_t) * 16
-			}
-		};
+        if (renderer->config.edgemode) {
+    		return (VulkanBoundVariable) {
+    			STORAGE_BUFFER,
+    			(SchrodingRef) {
+    				TRUE,
+    				&(renderer->vulkan.core.geometry.edge_bvh.workoffsets.buffer)
+    			},
+    			(SchrodingSize) {
+    				(SchrodingRef) {
+    					TRUE,
+    					&(renderer->geometry.edges.size)
+    				}, INVOCATION_GROUP_SIZE,
+    				sizeof(uint32_t) * 16
+    			}
+    		};
+        } else {
+    		return (VulkanBoundVariable) {
+    			STORAGE_BUFFER,
+    			(SchrodingRef) {
+    				TRUE,
+    				&(renderer->vulkan.core.geometry.bvh.workoffsets.buffer)
+    			},
+    			(SchrodingSize) {
+    				(SchrodingRef) {
+    					TRUE,
+    					&(renderer->geometry.triangles.size)
+    				}, INVOCATION_GROUP_SIZE,
+    				sizeof(uint32_t) * 16
+    			}
+    		};
+        }
 	} else if (strcmp(name, "WorkGroupHistorySSBOIn") == 0) {
-		return (VulkanBoundVariable) {
-			STORAGE_BUFFER,
-			(SchrodingRef) {
-				TRUE,
-				&(renderer->vulkan.core.geometry.bvh.workhistory.buffer)
-			},
-			(SchrodingSize) {
-				(SchrodingRef) {
-					TRUE,
-					&(renderer->geometry.triangles.size)
-				}, INVOCATION_GROUP_SIZE,
-				sizeof(uint32_t) * 16
-			}
-		};
+        if (renderer->config.edgemode) {
+    		return (VulkanBoundVariable) {
+    			STORAGE_BUFFER,
+    			(SchrodingRef) {
+    				TRUE,
+    				&(renderer->vulkan.core.geometry.edge_bvh.workhistory.buffer)
+    			},
+    			(SchrodingSize) {
+    				(SchrodingRef) {
+    					TRUE,
+    					&(renderer->geometry.edges.size)
+    				}, INVOCATION_GROUP_SIZE,
+    				sizeof(uint32_t) * 16
+    			}
+    		};
+        } else {
+    		return (VulkanBoundVariable) {
+    			STORAGE_BUFFER,
+    			(SchrodingRef) {
+    				TRUE,
+    				&(renderer->vulkan.core.geometry.bvh.workhistory.buffer)
+    			},
+    			(SchrodingSize) {
+    				(SchrodingRef) {
+    					TRUE,
+    					&(renderer->geometry.triangles.size)
+    				}, INVOCATION_GROUP_SIZE,
+    				sizeof(uint32_t) * 16
+    			}
+    		};
+        }
 	} else if (strcmp(name, "MortonSSBOIn") == 0) {
-		return (VulkanBoundVariable) {
-			STORAGE_BUFFER,
-			(SchrodingRef) {
-				TRUE,
-				&(renderer->vulkan.core.geometry.bvh.mortons.buffer)
-			},
-			(SchrodingSize) {
-				(SchrodingRef) {
-					TRUE,
-					&(renderer->geometry.triangles.size)
-				}, 0.0f,
-				sizeof(uint32_t)
-			}
-		};
+        if (renderer->config.edgemode) {
+    		return (VulkanBoundVariable) {
+    			STORAGE_BUFFER,
+    			(SchrodingRef) {
+    				TRUE,
+    				&(renderer->vulkan.core.geometry.edge_bvh.mortons.buffer)
+    			},
+    			(SchrodingSize) {
+    				(SchrodingRef) {
+    					TRUE,
+    					&(renderer->geometry.edges.size)
+    				}, 0.0f,
+    				sizeof(uint32_t)
+    			}
+    		};
+        } else {
+    		return (VulkanBoundVariable) {
+    			STORAGE_BUFFER,
+    			(SchrodingRef) {
+    				TRUE,
+    				&(renderer->vulkan.core.geometry.bvh.mortons.buffer)
+    			},
+    			(SchrodingSize) {
+    				(SchrodingRef) {
+    					TRUE,
+    					&(renderer->geometry.triangles.size)
+    				}, 0.0f,
+    				sizeof(uint32_t)
+    			}
+    		};
+        }
 	} else if (strcmp(name, "IndexSSBOIn") == 0) {
-		return (VulkanBoundVariable) {
-			STORAGE_BUFFER,
-			(SchrodingRef) {
-				TRUE,
-				&(renderer->vulkan.core.geometry.bvh.indices.buffer)
-			},
-			(SchrodingSize) {
-				(SchrodingRef) {
-					TRUE,
-					&(renderer->geometry.triangles.size)
-				}, 0.0f,
-				sizeof(uint32_t)
-			}
-		};
+        if (renderer->config.edgemode) {
+    		return (VulkanBoundVariable) {
+    			STORAGE_BUFFER,
+    			(SchrodingRef) {
+    				TRUE,
+    				&(renderer->vulkan.core.geometry.edge_bvh.indices.buffer)
+    			},
+    			(SchrodingSize) {
+    				(SchrodingRef) {
+    					TRUE,
+    					&(renderer->geometry.edges.size)
+    				}, 0.0f,
+    				sizeof(uint32_t)
+    			}
+    		};
+        } else {
+    		return (VulkanBoundVariable) {
+    			STORAGE_BUFFER,
+    			(SchrodingRef) {
+    				TRUE,
+    				&(renderer->vulkan.core.geometry.bvh.indices.buffer)
+    			},
+    			(SchrodingSize) {
+    				(SchrodingRef) {
+    					TRUE,
+    					&(renderer->geometry.triangles.size)
+    				}, 0.0f,
+    				sizeof(uint32_t)
+    			}
+    		};
+        }
 	} else if (strcmp(name, "MortonSwapSSBOIn") == 0) {
-		return (VulkanBoundVariable) {
-			STORAGE_BUFFER,
-			(SchrodingRef) {
-				TRUE,
-				&(renderer->vulkan.core.geometry.bvh.mortonswap.buffer)
-			},
-			(SchrodingSize) {
-				(SchrodingRef) {
-					TRUE,
-					&(renderer->geometry.triangles.size)
-				}, 0.0f,
-				sizeof(uint32_t)
-			}
-		};
+        if (renderer->config.edgemode) {
+    		return (VulkanBoundVariable) {
+    			STORAGE_BUFFER,
+    			(SchrodingRef) {
+    				TRUE,
+    				&(renderer->vulkan.core.geometry.edge_bvh.mortonswap.buffer)
+    			},
+    			(SchrodingSize) {
+    				(SchrodingRef) {
+    					TRUE,
+    					&(renderer->geometry.edges.size)
+    				}, 0.0f,
+    				sizeof(uint32_t)
+    			}
+    		};
+        } else {
+    		return (VulkanBoundVariable) {
+    			STORAGE_BUFFER,
+    			(SchrodingRef) {
+    				TRUE,
+    				&(renderer->vulkan.core.geometry.bvh.mortonswap.buffer)
+    			},
+    			(SchrodingSize) {
+    				(SchrodingRef) {
+    					TRUE,
+    					&(renderer->geometry.triangles.size)
+    				}, 0.0f,
+    				sizeof(uint32_t)
+    			}
+    		};
+        }
 	} else if (strcmp(name, "IndexSwapSSBOIn") == 0) {
-		return (VulkanBoundVariable) {
-			STORAGE_BUFFER,
-			(SchrodingRef) {
-				TRUE,
-				&(renderer->vulkan.core.geometry.bvh.indexswap.buffer)
-			},
-			(SchrodingSize) {
-				(SchrodingRef) {
-					TRUE,
-					&(renderer->geometry.triangles.size)
-				}, 0.0f,
-				sizeof(uint32_t)
-			}
-		};
+        if (renderer->config.edgemode) {
+    		return (VulkanBoundVariable) {
+    			STORAGE_BUFFER,
+    			(SchrodingRef) {
+    				TRUE,
+    				&(renderer->vulkan.core.geometry.edge_bvh.indexswap.buffer)
+    			},
+    			(SchrodingSize) {
+    				(SchrodingRef) {
+    					TRUE,
+    					&(renderer->geometry.edges.size)
+    				}, 0.0f,
+    				sizeof(uint32_t)
+    			}
+    		};
+        } else {
+    		return (VulkanBoundVariable) {
+    			STORAGE_BUFFER,
+    			(SchrodingRef) {
+    				TRUE,
+    				&(renderer->vulkan.core.geometry.bvh.indexswap.buffer)
+    			},
+    			(SchrodingSize) {
+    				(SchrodingRef) {
+    					TRUE,
+    					&(renderer->geometry.triangles.size)
+    				}, 0.0f,
+    				sizeof(uint32_t)
+    			}
+    		};
+        }
 	} else if (strcmp(name, "BoundingBoxSSBOIn") == 0) {
-		return (VulkanBoundVariable) {
-			STORAGE_BUFFER,
-			(SchrodingRef) {
-				TRUE,
-				&(renderer->vulkan.core.geometry.bvh.boundingboxes.buffer)
-			},
-			(SchrodingSize) {
-				(SchrodingRef) {
-					TRUE,
-					&(renderer->geometry.triangles.size)
-				}, 0.0f,
-				sizeof(AxisAlignedBoundingBox)
-			}
-		};
+        if (renderer->config.edgemode) {
+    		return (VulkanBoundVariable) {
+    			STORAGE_BUFFER,
+    			(SchrodingRef) {
+    				TRUE,
+    				&(renderer->vulkan.core.geometry.edge_bvh.boundingboxes.buffer)
+    			},
+    			(SchrodingSize) {
+    				(SchrodingRef) {
+    					TRUE,
+    					&(renderer->geometry.edges.size)
+    				}, 0.0f,
+    				sizeof(AxisAlignedBoundingBox)
+    			}
+    		};
+        } else {
+    		return (VulkanBoundVariable) {
+    			STORAGE_BUFFER,
+    			(SchrodingRef) {
+    				TRUE,
+    				&(renderer->vulkan.core.geometry.bvh.boundingboxes.buffer)
+    			},
+    			(SchrodingSize) {
+    				(SchrodingRef) {
+    					TRUE,
+    					&(renderer->geometry.triangles.size)
+    				}, 0.0f,
+    				sizeof(AxisAlignedBoundingBox)
+    			}
+    		};
+        }
 	} else if (strcmp(name, "BVHNodeSSBOIn") == 0) {
-		return (VulkanBoundVariable) {
-			STORAGE_BUFFER,
-			(SchrodingRef) {
-				TRUE,
-				&(renderer->vulkan.core.geometry.bvh.nodes.buffer)
-			},
-			(SchrodingSize) {
-				(SchrodingRef) {
-					TRUE,
-					&(renderer->geometry.triangles.size)
-				}, 0.0f,
-				sizeof(BVHNode) * 2
-			}
-		};
+        if (renderer->config.edgemode) {
+    		return (VulkanBoundVariable) {
+    			STORAGE_BUFFER,
+    			(SchrodingRef) {
+    				TRUE,
+    				&(renderer->vulkan.core.geometry.edge_bvh.nodes.buffer)
+    			},
+    			(SchrodingSize) {
+    				(SchrodingRef) {
+    					TRUE,
+    					&(renderer->geometry.edges.size)
+    				}, 0.0f,
+    				sizeof(BVHNode) * 2
+    			}
+    		};
+        } else {
+    		return (VulkanBoundVariable) {
+    			STORAGE_BUFFER,
+    			(SchrodingRef) {
+    				TRUE,
+    				&(renderer->vulkan.core.geometry.bvh.nodes.buffer)
+    			},
+    			(SchrodingSize) {
+    				(SchrodingRef) {
+    					TRUE,
+    					&(renderer->geometry.triangles.size)
+    				}, 0.0f,
+    				sizeof(BVHNode) * 2
+    			}
+    		};
+        }
 	} else if (strcmp(name, "BucketBaseSSBOIn") == 0) {
-		return (VulkanBoundVariable) {
-			STORAGE_BUFFER,
-			(SchrodingRef) {
-				TRUE,
-				&(renderer->vulkan.core.geometry.bvh.buckets.buffer)
-			},
-			(SchrodingSize) {
-				(SchrodingRef) {
-					FALSE,
-					(void*)16
-				}, 0.0f,
-				sizeof(uint32_t)
-			}
-		};
+        if (renderer->config.edgemode) {
+    		return (VulkanBoundVariable) {
+    			STORAGE_BUFFER,
+    			(SchrodingRef) {
+    				TRUE,
+    				&(renderer->vulkan.core.geometry.edge_bvh.buckets.buffer)
+    			},
+    			(SchrodingSize) {
+    				(SchrodingRef) {
+    					FALSE,
+    					(void*)16
+    				}, 0.0f,
+    				sizeof(uint32_t)
+    			}
+    		};
+        } else {
+    		return (VulkanBoundVariable) {
+    			STORAGE_BUFFER,
+    			(SchrodingRef) {
+    				TRUE,
+    				&(renderer->vulkan.core.geometry.bvh.buckets.buffer)
+    			},
+    			(SchrodingSize) {
+    				(SchrodingRef) {
+    					FALSE,
+    					(void*)16
+    				}, 0.0f,
+    				sizeof(uint32_t)
+    			}
+    		};
+        }
 	} else if (strcmp(name, "OverlaySSBO") == 0) {
 		return (VulkanBoundVariable) {
 			STORAGE_BUFFER,

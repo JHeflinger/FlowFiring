@@ -33,7 +33,11 @@ BOOL VINIT_RenderContext(VulkanRenderContext* context);
 
 BOOL VINIT_BVH(VulkanBVH* bvh);
 
+BOOL VINIT_EdgeBVH(VulkanBVH* bvh);
+
 BOOL VINIT_Vertices(VulkanDataBuffer* vertices);
+
+BOOL VINIT_Edges(VulkanDataBuffer* edges);
 
 BOOL VINIT_Triangles(VulkanDataBuffer* triangles);
 

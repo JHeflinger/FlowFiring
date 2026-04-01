@@ -32,6 +32,7 @@ typedef struct {
     alignas(4) float height;
     alignas(4) uint32_t orthogonal;
     alignas(4) float depth;
+    alignas(4) uint32_t edgemode;
 } UniformBufferObject;
 
 typedef struct {
@@ -137,7 +138,9 @@ typedef struct {
 
 typedef struct {
     VulkanBVH bvh;
+    VulkanBVH edge_bvh;
     VulkanDataBuffer vertices;
+    VulkanDataBuffer edges;
     VulkanDataBuffer triangles;
 } VulkanGeometry;
 
