@@ -87,6 +87,18 @@ void InitializeRenderer() {
 
     // set overlay context
     SetOverlayContext(&g_renderer);
+
+    // TODO:delete
+    SubmitTOH(5, 5, 5);
+    Triangle* tref = TriangleReference(637);
+    tref->hole = TRUE;
+    EdgeMeta* eref = EdgeReference((Edge){ 142, 109 });
+    int val = 100;
+    eref->flow = val;
+    eref = EdgeReference((Edge){ 143, 109 });
+    eref->flow = val;
+    eref = EdgeReference((Edge){ 143, 142 });
+    eref->flow = val;
 }
 
 void DestroyRenderer() {
@@ -184,7 +196,7 @@ TriangleID SubmitTriangle(Triangle triangle) {
         if (!HASHMAP_EdgeMap_has(&(g_renderer.geometry.emap), primed)) {
             EdgeMeta meta = (EdgeMeta) {
                 primed.a, primed.b, (EdgeID)id, (EdgeID)-1, (EdgeID)-1,
-                (EdgeID)-1, (EdgeID)-1, (EdgeID)-1, (EdgeID)-1, (EdgeID)-1, 0 };
+                (EdgeID)-1, (EdgeID)-1, (EdgeID)-1, (EdgeID)-1, (EdgeID)-1, 0, 0 };
             HASHMAP_EdgeMap_set(&(g_renderer.geometry.emap), primed, g_renderer.geometry.edges.size);
             ARRLIST_EdgeMeta_add(&(g_renderer.geometry.edges), meta);
         } else {
@@ -537,4 +549,58 @@ const char* GPUHeapType(size_t i) {
     if (g_renderer.stats.cache.heap_props.memoryProperties.memoryHeaps[i].flags & VK_MEMORY_HEAP_MULTI_INSTANCE_BIT)
         return "MULTI";
     return "SHARE";
+}
+
+void SubmitTOH(size_t width, size_t height, size_t length) {
+    VertexID vstart = NumVertices();
+    vec3 origin = { 0.0f - ((float)width/2.0f)*1.0f, 0.0f - ((float)(height + 1)/2.0f)*0.7f, 0.0f - ((float)length/2.0f)*1.0f };
+    for (size_t h = 0; h <= height + 1; h++) {
+        for (size_t l = 0; l <= length; l++) {
+            for (size_t w = 0; w <= width; w++) {
+                size_t pyrlayers = (h - 1)/2;
+                size_t sqlayers = (h - 1)/2 + (h - 1)%2;
+                size_t lindex = sqlayers*(width+1)*(length+1) + pyrlayers*width*length + vstart;
+                if (h%2 == 0) {
+                    vec3 v = { origin[0] + w*1.0f, origin[1] + h*0.7f, origin[2] + l*1.0f };
+                    SubmitVertex(v);
+                    if (h > 0 && w > 0 && l > 0) {
+                        SubmitTriangle((Triangle){ 0, NumVertices() - 1, NumVertices() - 2, lindex + width*(l - 1) + w - 1 });
+                        SubmitTriangle((Triangle){ 0, NumVertices() - 1 - (length + 1), NumVertices() - 2 - (length + 1), lindex + width*(l - 1) + w - 1 });
+                        SubmitTriangle((Triangle){ 0, NumVertices() - 1 - (length + 1), NumVertices() - 1, lindex + width*(l - 1) + w - 1 });
+                        SubmitTriangle((Triangle){ 0, NumVertices() - 2, NumVertices() - 2 - (length + 1), lindex + width*(l - 1) + w - 1 });
+                    }
+                    if (h > 0 && w > 0 && w < width && l < length) {
+                        SubmitTriangle((Triangle){ 0, NumVertices() - 1, lindex + width*l + w, lindex + width*l + w - 1 });
+                    }
+                    if (h > 0 && w > 0 && w < width && l > 0) {
+                        SubmitTriangle((Triangle){ 0, NumVertices() - 1, lindex + width*(l - 1) + w, lindex + width*(l - 1) + w - 1 });
+                    }
+                    if (h > 0 && w < width && l > 0 && l < length) {
+                        SubmitTriangle((Triangle){ 0, NumVertices() - 1, lindex + width*(l - 1) + w, lindex + width*l + w });
+                    }
+                    if (h > 0 && w > 0 && l > 0 && l < length) {
+                        SubmitTriangle((Triangle){ 0, NumVertices() - 1, lindex + width*(l - 1) + w - 1, lindex + width*l + w - 1 });
+                    }
+                } else {
+                    if (w == width || l == length) continue;
+                    vec3 v = { origin[0] + w*1.0f + 0.5f, origin[1] + h*0.7f, origin[2] + l*1.0f + 0.5f };
+                    SubmitVertex(v);
+                    SubmitTriangle((Triangle){ 0, NumVertices() - 1, lindex + (width + 1)*l + w, lindex + (width + 1)*l + w + 1 });
+                    SubmitTriangle((Triangle){ 0, NumVertices() - 1, lindex + (width + 1)*(l + 1) + w, lindex + (width + 1)*(l + 1) + w + 1 });
+                    SubmitTriangle((Triangle){ 0, NumVertices() - 1, lindex + (width + 1)*l + w, lindex + (width + 1)*(l + 1) + w });
+                    SubmitTriangle((Triangle){ 0, NumVertices() - 1, lindex + (width + 1)*l + w + 1, lindex + (width + 1)*(l + 1) + w + 1 });
+                    if (w > 0) {
+                        SubmitTriangle((Triangle){ 0, NumVertices() - 1, NumVertices() - 2, lindex + (width + 1)*l + w });
+                        SubmitTriangle((Triangle){ 0, NumVertices() - 1, NumVertices() - 2, lindex + (width + 1)*(l + 1) + w });
+                    }
+                    if (l > 0) {
+                        SubmitTriangle((Triangle){ 0, NumVertices() - 1, NumVertices() - 1 - length, lindex + (width + 1)*l + w });
+                        SubmitTriangle((Triangle){ 0, NumVertices() - 1, NumVertices() - 1 - length, lindex + (width + 1)*l + w + 1 });
+                    }
+                }
+            }
+        }
+    }
+    PrimeEdges();
+    FitCamera();
 }

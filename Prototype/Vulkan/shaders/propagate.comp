@@ -1,0 +1,26 @@
+#version 450
+
+struct Edge {
+    uint a;
+    uint b;
+    uint f1e1;
+    uint f1e2;
+    uint f2e1;
+    uint f2e2;
+    uint f3e1;
+    uint f3e2;
+    uint f4e1;
+    uint f4e2;
+    int flow;
+    int prev;
+};
+
+layout(binding = 0) buffer EdgeSSBOIn {
+    Edge edgeIn[ ];
+};
+
+layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+void main() {
+    edgeIn[gl_GlobalInvocationID.x].prev = edgeIn[gl_GlobalInvocationID.x].flow;
+}

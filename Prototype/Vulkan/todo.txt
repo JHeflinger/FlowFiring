@@ -15,7 +15,11 @@
     8b. render edges - DONE
     8c. simulate edges - DONE
     8c1. make simulate not use atomics, have edges pull instead of push
-    8d. select edges from edgemode
+    8d. toggle visible 0-edges
+    8e. select edges from edgemode
+    8f. simulation controls
+    8g. lock and step camera angles
+    8h. save/load config and results
 9. render heatmap
 10. select vertex and display inflow and outflow
 11. conservative inflow/outflow checker
@@ -25,3 +29,6 @@ Alternate forms of visualization:
 2. replace edges with dots
 3. interpolated edge colors onto faces
 4. volumetric cloud
+
+Notes of uncertainty:
+- does dispatching more workgroups bleed over into other indices? If so, we will need to pass in the group size and early return any invocations that are outside of the range...

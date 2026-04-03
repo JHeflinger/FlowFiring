@@ -1,5 +1,7 @@
 #version 450
 
+#define ATOMIC false
+
 struct Edge {
     uint a;
     uint b;
@@ -12,6 +14,7 @@ struct Edge {
     uint f4e1;
     uint f4e2;
     int flow;
+    int prev;
 };
 
 layout(binding = 0) buffer EdgeSSBOIn {
@@ -42,8 +45,7 @@ void applyflow(uint edge, uint a, uint b) { // TODO: branch optimize later, good
     }
 }
 
-void main() {
-    uint eid = gl_GlobalInvocationID.x + pc.elements;
+void atomicSimulate(uint eid) {
     Edge e = edgeIn[eid];
     if (abs(e.flow) > 4) { // TODO: should we count valid faces and then actually calculate the proper degree so borders are accounted for?
         uint candidates[8] = { e.f1e1, e.f1e2, e.f2e1, e.f2e2, e.f3e1, e.f3e2, e.f4e1, e.f4e2 };
@@ -51,4 +53,46 @@ void main() {
         if (e.flow < 0) edgeIn[eid].flow = e.flow + 4; //TODO: same here as above todo
         else edgeIn[eid].flow = e.flow - 4;
     }
+}
+
+void pullFlow(uint comingfrom, inout Edge goingto) {
+    Edge cfrom = edgeIn[comingfrom];
+    if (abs(cfrom.prev) > 4) {
+        if (cfrom.a == goingto.a || cfrom.a == goingto.b) {
+            if (cfrom.a == goingto.a) {
+                goingto.flow--;
+            } else {
+                goingto.flow++;
+            }
+        } else {
+            if (cfrom.b == goingto.b) {
+                goingto.flow--;
+            } else {
+                goingto.flow++;
+            }
+        }
+    }
+}
+
+void perfectSimulate(uint eid) {
+    Edge e = edgeIn[eid];
+    uint candidates[8] = { e.f1e1, e.f1e2, e.f2e1, e.f2e2, e.f3e1, e.f3e2, e.f4e1, e.f4e2 };
+    // subtract own flow if need to be fired - I believe this is still possible, but order matters - should this go before? after? maybe it depends on what group is being fired at the moment? Need to think more and test to be sure. Do we even need to use prev instead of flow? Maybe that's the problem?
+    if (abs(e.flow) > 4) {
+        if (e.flow < 0) e.flow += 4;
+        else e.flow -= 4;
+    }
+    for (int i = 0; i < 8; i++) {
+        if (candidates[i] != -1) {
+            // pull flow
+            pullFlow(candidates[i], e);
+        }
+    }
+    edgeIn[eid].flow = e.flow;
+}
+
+void main() {
+    uint eid = gl_GlobalInvocationID.x + pc.elements;
+    if (ATOMIC) atomicSimulate(eid);
+    else perfectSimulate(eid);
 }

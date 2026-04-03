@@ -51,6 +51,7 @@ struct Edge {
     uint f4e1;
     uint f4e2;
     int flow;
+    int prev;
 };
 
 layout(binding = 0) uniform UniformBufferObject {

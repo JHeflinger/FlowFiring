@@ -81,4 +81,6 @@ size_t GPUHeapBudget(size_t i);
 
 const char* GPUHeapType(size_t i);
 
+void SubmitTOH(size_t width, size_t height, size_t length);
+
 #endif
