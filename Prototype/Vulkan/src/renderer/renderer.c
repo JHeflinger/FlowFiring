@@ -196,7 +196,7 @@ TriangleID SubmitTriangle(Triangle triangle) {
         if (!HASHMAP_EdgeMap_has(&(g_renderer.geometry.emap), primed)) {
             EdgeMeta meta = (EdgeMeta) {
                 primed.a, primed.b, (EdgeID)id, (EdgeID)-1, (EdgeID)-1,
-                (EdgeID)-1, (EdgeID)-1, (EdgeID)-1, (EdgeID)-1, (EdgeID)-1, 0, 0 };
+                (EdgeID)-1, (EdgeID)-1, (EdgeID)-1, (EdgeID)-1, (EdgeID)-1, 0 };
             HASHMAP_EdgeMap_set(&(g_renderer.geometry.emap), primed, g_renderer.geometry.edges.size);
             ARRLIST_EdgeMeta_add(&(g_renderer.geometry.edges), meta);
         } else {

@@ -60,7 +60,7 @@ void VUPDT_RecordCommand(VkCommandBuffer command) {
     // execute shader stages
     uint32_t radix_bits = 0;
     #define _record_push_constants(elements) { \
-        VulkanPushConstants pc = { elements, radix_bits }; \
+        VulkanPushConstants pc = { elements, radix_bits, 0, 0, 0, 0 }; \
         vkCmdPushConstants( \
             command, \
             g_vupdt_renderer_ref->vulkan.core.context.pipeline.layout[i], \

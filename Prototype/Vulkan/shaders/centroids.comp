@@ -35,7 +35,6 @@ struct Edge {
     uint f4e1;
     uint f4e2;
     int flow;
-    int prev;
 };
 
 layout(binding = 0) uniform GeometryUniformBufferObject { 
@@ -88,6 +87,10 @@ layout(binding = 7) uniform UniformBufferObject {
 layout(push_constant) uniform PushConstants {
     uint elements;
     uint bitstart;
+    uint skipstart;
+    uint skipsize;
+    uint prevstart;
+    uint prevsize;
 } pc;
 
 layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;

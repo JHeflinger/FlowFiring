@@ -29,6 +29,10 @@ layout(binding = 2) buffer BVHNodeSSBOIn {
 layout(push_constant) uniform PushConstants {
     uint elements;
     uint bitstart;
+    uint skipstart;
+    uint skipsize;
+    uint prevstart;
+    uint prevsize;
 } pc;
 
 layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
