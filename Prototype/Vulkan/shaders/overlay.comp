@@ -78,6 +78,7 @@ layout(binding = 7) uniform UniformBufferObject {
     uint orthogonal;
     float depth;
     uint edgemode;
+    uint colors;
 } ubo;
 
 layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;

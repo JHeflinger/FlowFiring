@@ -14,7 +14,7 @@
     8a. edge bvh - DONE
     8b. render edges - DONE
     8c. simulate edges - DONE
-    8c1. make simulate not use atomics, have edges pull instead of push
+    8c1. make simulate not use atomics, have edges pull instead of push - DONE
     8d. toggle visible 0-edges
     8e. select edges from edgemode
     8f. simulation controls

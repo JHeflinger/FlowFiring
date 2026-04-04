@@ -142,6 +142,7 @@ typedef struct {
     BOOL orthogonal;
     BOOL edgemode;
     BOOL simulate;
+    BOOL colors;
     float depth;
     PipelineFlags flags;
 } RendererConfig;

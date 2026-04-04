@@ -70,6 +70,7 @@ void DrawDevPanel(float width, float height) {
 	UICheckboxLabeled("Enable grid:", &RenderConfig()->grid);
 	UICheckboxLabeled("Show edges only:", &RenderConfig()->edgemode);
 	UICheckboxLabeled("Simulate:", &RenderConfig()->simulate);
+	UICheckboxLabeled("Colors:", &RenderConfig()->colors);
 
     UIMoveCursor(0, 20);
 	UIDragFloatLabeled("Cross section depth:", &RenderConfig()->depth, 0.0f, FLT_MAX, 0.01f, 300);

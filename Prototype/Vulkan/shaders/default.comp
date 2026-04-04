@@ -69,6 +69,7 @@ layout(binding = 0) uniform UniformBufferObject {
     uint orthogonal;
     float depth;
     uint edgemode;
+    uint colors;
 } ubo;
 
 layout(binding = 1) buffer RayGeneratorSSBOIn {
@@ -108,6 +109,7 @@ vec3 hsv2rgb(vec3 c) {
 }
 
 vec3 rainbow(float t) {
+    if (ubo.colors == 0) return vec3(1.0);
     if (t == 1.0) return vec3(1.0);
     t = clamp(t, 0.0, 1.0);
     return hsv2rgb(vec3(t, 1.0, 1.0));
@@ -176,7 +178,7 @@ bool triangle_intersect(Ray ray, uint triangle_ind, inout Hit hit) {
 
 bool edge_intersect(Ray ray, uint edge_ind, inout Hit hit) {
     Edge edge = edgeIn[edge_ind];
-    if (edge.flow == 0) return false;
+    if (edge.flow == 0 && ubo.colors != 0) return false;
     vec3 pa = vertexIn[edge.a];
     vec3 pb = vertexIn[edge.b];
     vec3 ab = pb - pa;

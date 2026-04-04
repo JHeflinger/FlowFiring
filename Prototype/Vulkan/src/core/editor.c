@@ -5,6 +5,7 @@
 #include "data/assets.h"
 #include "ui/ui.h"
 #include "ui/panels/diagnostics.h"
+#include "ui/panels/simulate.h"
 #include "ui/panels/viewport.h"
 #include "ui/panels/overview.h"
 #include "ui/panels/edit.h"
@@ -41,6 +42,7 @@ void InitEditor() {
     ((UI*)((UI*)g_ui->left)->left)->vertical = TRUE;
     ((UI*)g_ui->left)->divide = 350;
     ARRLIST_Panel_add(&(((UI*)(((UI*)g_ui->right)->right))->panels), GenerateDiagnosticsPanel());
+    ARRLIST_Panel_add(&(((UI*)(((UI*)g_ui->right)->right))->panels), GenerateSimulatePanel());
     ARRLIST_Panel_add(&(((UI*)(((UI*)g_ui->right)->left))->panels), GenerateOverviewPanel());
     ARRLIST_Panel_add(&(((UI*)(((UI*)g_ui->left)->right))->panels), GenerateViewportPanel());
     ARRLIST_Panel_add(&(GetLeftUI(GetLeftUI(GetLeftUI(g_ui)))->panels), GenerateEditPanel());

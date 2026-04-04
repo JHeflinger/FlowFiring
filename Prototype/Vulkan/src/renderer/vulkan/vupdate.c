@@ -51,7 +51,7 @@ void VUPDT_RecordCommand(VkCommandBuffer command) {
 
     size_t simulates = 0;
     if (g_vupdt_renderer_ref->config.simulate) {
-        simulates = 4;
+        simulates = 5;
         g_vupdt_renderer_ref->config.flags |= SIMULATE_PIPELINE_FLAGS;
     } else {
         g_vupdt_renderer_ref->config.flags &= ~(SIMULATE_PIPELINE_FLAGS);
@@ -71,11 +71,27 @@ void VUPDT_RecordCommand(VkCommandBuffer command) {
         uint32_t invocations = (uint32_t)g_vupdt_renderer_ref->dimensions.x * (uint32_t)g_vupdt_renderer_ref->dimensions.y;
 
         if ((1u << i) & SIMULATE_SHADER_FLAG) {
-            size_t offset_index = 4 - simulates;
-            invocations = g_vupdt_renderer_ref->geometry.offsets[offset_index];
-            size_t start = 0;
-            for (size_t j = 0; j < offset_index; j++) start += g_vupdt_renderer_ref->geometry.offsets[j];
-            _record_push_constants(start);
+            size_t ss = 0;
+            size_t sc = 0;
+            size_t ps = 0;
+            size_t pc = 0;
+            size_t offset_index = 5 - simulates;
+            if (offset_index > 0) {
+                pc = g_vupdt_renderer_ref->geometry.offsets[offset_index - 1];
+                for (size_t j = 0; j < offset_index - 1; j++) ps += g_vupdt_renderer_ref->geometry.offsets[j];
+            }
+            if (offset_index < 4) {
+                sc = g_vupdt_renderer_ref->geometry.offsets[offset_index];
+                for (size_t j = 0; j < offset_index; j++) ss += g_vupdt_renderer_ref->geometry.offsets[j];
+            }
+            if (offset_index == 4) invocations = g_vupdt_renderer_ref->geometry.offsets[3];
+            else invocations = g_vupdt_renderer_ref->geometry.edges.size - g_vupdt_renderer_ref->geometry.offsets[offset_index];
+            VulkanPushConstants push = { 0, 0, ss, sc, ps, pc };
+            vkCmdPushConstants(
+                command,
+                g_vupdt_renderer_ref->vulkan.core.context.pipeline.layout[i],
+                VK_SHADER_STAGE_COMPUTE_BIT,
+                0, sizeof(VulkanPushConstants), &push);
             simulates--;
         }
 
@@ -270,6 +286,7 @@ void VUPDT_UniformBuffers(UBOArray* ubos) {
         ubo.orthogonal = (uint32_t)g_vupdt_renderer_ref->config.orthogonal;
         ubo.depth = g_vupdt_renderer_ref->config.depth;
         ubo.edgemode = (uint32_t)g_vupdt_renderer_ref->config.edgemode;
+        ubo.colors = (uint32_t)g_vupdt_renderer_ref->config.colors;
         memcpy(ubos->mapped[g_vupdt_renderer_ref->swapchain.index], &ubo, sizeof(UniformBufferObject));
     }
 

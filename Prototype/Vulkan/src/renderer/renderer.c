@@ -46,6 +46,7 @@ void InitializeRenderer() {
     g_renderer.config.depth = 0.0f;
     g_renderer.config.edgemode = FALSE;
     g_renderer.config.simulate = FALSE;
+    g_renderer.config.colors = FALSE;
 
     // initialize min/max BB
     SETVEC3(g_renderer.geometry.bounds.min, FLT_MAX, FLT_MAX, FLT_MAX);

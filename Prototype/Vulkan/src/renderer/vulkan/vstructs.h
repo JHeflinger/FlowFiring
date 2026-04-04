@@ -33,6 +33,7 @@ typedef struct {
     alignas(4) uint32_t orthogonal;
     alignas(4) float depth;
     alignas(4) uint32_t edgemode;
+    alignas(4) uint32_t colors;
 } UniformBufferObject;
 
 typedef struct {

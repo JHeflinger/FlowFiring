@@ -82,6 +82,7 @@ layout(binding = 7) uniform UniformBufferObject {
     uint orthogonal;
     float depth;
     uint edgemode;
+    uint colors;
 } uubo;
 
 layout(push_constant) uniform PushConstants {
