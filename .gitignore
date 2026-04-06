@@ -1,1 +1,26 @@
 Prototype/Vulkan/build/*
+
+# Python / build
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+.venv/
+uv.lock
+
+# CMake / native build artifacts
+CMakeCache.txt
+CMakeFiles/
+*.ninja*
+.cmake/
+.skbuild-info.json
+cmake_install.cmake
+*.so
+
+# Generated output
+*.mov
+*.png
+
+# OS
+.DS_Store

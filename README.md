@@ -17,3 +17,9 @@ Note that the current prototype has a chance go exponentially grow infinitely, s
 There is a previous WebGPU implementation located in the `Prototype/WebGPU` folder. To run it, just open the `Prototype/WebGPU/index.html` file in a browser that supports WebGPU and has it properly enabled.
 
 Note that this implementation is for chip firing, not flow firing, but has been included as a useful reference.
+
+### CUDA
+
+GPU-accelerated flow firing on simplicial complexes with a Blender viewer.
+See [`Prototype/CUDA/README.md`](Prototype/CUDA/README.md) for install and
+usage.
