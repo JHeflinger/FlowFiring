@@ -605,3 +605,9 @@ void SubmitTOH(size_t width, size_t height, size_t length) {
     PrimeEdges();
     FitCamera();
 }
+
+void RestartSimulation() {
+    UpdateTriangles();
+    UpdateEdges();
+    UpdateVertices();
+}

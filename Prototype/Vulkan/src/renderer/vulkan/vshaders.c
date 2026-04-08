@@ -501,12 +501,9 @@ VulkanShader* GenerateShader(Renderer* context, const char* readfile, const char
 					break;
 				}
 			}
-			if (!found) {
-				EZ_ERROR("Shader \"%s\" bind group is missing index %d", readfile, i);	
-			}
-			for (size_t j = 0; j < CPUSWAP_LENGTH; j++) {
+			if (!found) EZ_ERROR("Shader \"%s\" bind group is missing index %d", readfile, i);
+			for (size_t j = 0; j < CPUSWAP_LENGTH; j++)
 				ARRLIST_VulkanBoundVariable_add(&(shader->variables[j]), vbvs.data[index*CPUSWAP_LENGTH + j]);
-			} 
 		}
 		ARRLIST_int_clear(&indices);
 		ARRLIST_VulkanBoundVariable_clear(&vbvs);
