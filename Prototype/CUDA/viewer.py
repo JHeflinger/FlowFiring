@@ -77,6 +77,8 @@ def parse_args():
                         help="Remove center XY-face (cubic only)")
     parser.add_argument("--prefire", type=int, default=0,
                         help="Fire N steps before showing (-1 = until stable)")
+    parser.add_argument("--single", action="store_true",
+                        help="Fire one edge per frame (step through individual firings)")
     return parser.parse_args(script_args)
 
 
@@ -448,26 +450,62 @@ def main():
         attr_ref.foreach_set("color", rgba.ravel())
         mesh_ref.update()
 
+    # State for --single mode: position in current sweep
+    sweep_pos = [0]
+
+    def fire_single_edge():
+        """Find and fire the next eligible edge in sweep order. Returns edge index or -1."""
+        deg = d["degrees"]
+        indptr = d["indptr"]
+        indices = d["indices"]
+        data = d["data"]
+        num = len(order)
+        for _ in range(num):
+            i = int(order[sweep_pos[0]])
+            sweep_pos[0] += 1
+            if sweep_pos[0] >= num:
+                sweep_pos[0] = 0
+                if rng is not None:
+                    rng.shuffle(order)
+            if deg[i] > 0 and abs(int(sim_config[i])) >= deg[i]:
+                sign = 1 if sim_config[i] > 0 else -1
+                for p in range(indptr[i], indptr[i + 1]):
+                    sim_config[indices[p]] -= sign * data[p]
+                return i
+        return -1
+
     def flow_fire(scene):
         nonlocal order
         if scene.frame_current <= 2:
             sim_config[:] = make_initial_config(args, d)
+            sweep_pos[0] = 0
             if scene.frame_current == 1:
                 update_mesh()
                 return
 
-        if args.gpu:
+        if args.single:
+            ei = fire_single_edge()
+            if ei >= 0:
+                total_flow = np.sum(np.abs(sim_config))
+                print(f"Frame {scene.frame_current}: fired edge {ei}, |flow|={total_flow}")
+            else:
+                print(f"Frame {scene.frame_current}: quiescent")
+        elif args.gpu:
             fired = fire_step(sim_config, d, use_cuda=True)
+            if fired > 0:
+                total_flow = np.sum(np.abs(sim_config))
+                print(f"Frame {scene.frame_current}: fired {fired}, |flow|={total_flow}")
+            else:
+                print(f"Frame {scene.frame_current}: quiescent")
         else:
             if rng is not None:
                 rng.shuffle(order)
             fired = fire_sequential_step(sim_config, d, order)
-
-        if fired > 0:
-            total_flow = np.sum(np.abs(sim_config))
-            print(f"Frame {scene.frame_current}: fired {fired}, |flow|={total_flow}")
-        else:
-            print(f"Frame {scene.frame_current}: quiescent")
+            if fired > 0:
+                total_flow = np.sum(np.abs(sim_config))
+                print(f"Frame {scene.frame_current}: fired {fired}, |flow|={total_flow}")
+            else:
+                print(f"Frame {scene.frame_current}: quiescent")
 
         update_mesh()
 
