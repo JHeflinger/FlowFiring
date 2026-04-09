@@ -27,6 +27,10 @@ sys.path.insert(0, str(DIR / ".venv/lib/python3.13/site-packages"))
 from flowfiring import build_lattice_3d, build_grid_3d
 from flowfiring.firing import fire_sequential_step, fire_step, fire_sequential, fire
 from flowfiring.configs import make_triangle_circulation, vkey
+from experiment_octa import (
+    find_octahedra, pick_central, find_eulerian_circuit,
+    circuit_to_config, remove_faces,
+)
 
 
 # Color palette: |flow| -> RGBA
@@ -62,7 +66,8 @@ def parse_args():
         script_args = []
     parser = argparse.ArgumentParser()
     parser.add_argument("--size", type=int, default=10)
-    parser.add_argument("--init", choices=["triangle", "quad", "cubic"],
+    parser.add_argument("--init", choices=["triangle", "quad", "cubic",
+                                          "hollow-face", "hollow-octa"],
                         default="quad")
     parser.add_argument("--initial", type=int, default=1000)
     parser.add_argument("--shuffle", action="store_true", default=False)
@@ -104,6 +109,27 @@ def build_complex(args):
         return d
     else:
         d = build_lattice_3d(args.size, with_colors=args.gpu)
+
+        # For hollow modes, find octahedron and remove faces
+        if args.init in ("hollow-face", "hollow-octa"):
+            octahedra = find_octahedra(d)
+            if not octahedra:
+                print("WARNING: no octahedra found, need larger --size")
+            else:
+                octa = pick_central(octahedra, d)
+                print(f"  Central octahedron at {octa['center']}")
+
+                if args.init == "hollow-octa":
+                    # Compute circuit BEFORE removing faces (needs original bnd data)
+                    circuit = find_eulerian_circuit(octa, d)
+                    d, removed = remove_faces(d, octa["face_indices"])
+                    d["_circuit"] = circuit
+                    print(f"  Removed 8 octahedron faces")
+                else:  # hollow-face
+                    face_to_remove = [octa["face_indices"][0]]
+                    d, removed = remove_faces(d, face_to_remove)
+                    d["_removed_bnd"] = removed
+                    print(f"  Removed 1 triangle face")
 
         # Compute z-layers from vertex z-coordinates
         sim_z_layers = []
@@ -188,6 +214,19 @@ def make_initial_config(args, d):
                 config[ei] = args.initial
             else:
                 config[ei] = -args.initial
+        return config
+
+    elif args.init == "hollow-octa":
+        circuit = d["_circuit"]
+        config = circuit_to_config(circuit, d["num_edges"], args.initial)
+        print(f"Octahedron Eulerian circuit (flow={args.initial}, 12 edges)")
+        return config
+
+    elif args.init == "hollow-face":
+        removed = d["_removed_bnd"]
+        config = np.zeros(d["num_edges"], dtype=np.int32)
+        config[removed[0]["edges"]] = removed[0]["signs"] * args.initial
+        print(f"Hollow face circulation (flow={args.initial}, 3 edges)")
         return config
 
     else:  # triangle
