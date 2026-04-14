@@ -66,8 +66,8 @@ void main() {
     Edge e = edgeIn[eid];
     if (inprev(eid)) {
         if (abs(e.flow) > 4) {
-            if (e.flow < 0) e.flow += 4;
-            else e.flow -= 4;
+            if (e.flow < 0) e.flow += 1;
+            else e.flow -= 1;
         }
     }
     if (pc.skipsize != 0) {

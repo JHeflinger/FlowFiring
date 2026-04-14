@@ -32,3 +32,8 @@ Alternate forms of visualization:
 
 Notes of uncertainty:
 - does dispatching more workgroups bleed over into other indices? If so, we will need to pass in the group size and early return any invocations that are outside of the range...
+
+Fix Notes:
+- So, you completely forgot to use the fact that a face is a hole
+
+ONOT MINUs 4 YOU ARE MINUSING FLOW JUST MINUS 1 WHEN SUBTRACTING YOUR FLOW FROM do to a FIRE
