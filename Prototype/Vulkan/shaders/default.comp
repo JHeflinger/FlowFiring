@@ -30,6 +30,7 @@ struct Hit {
     vec3 normal;
     vec3 position;
     float value;
+    float gradient;
 };
 
 struct Triangle {
@@ -70,6 +71,9 @@ layout(binding = 0) uniform UniformBufferObject {
     float depth;
     uint edgemode;
     uint colors;
+    uint viewmode;
+    uint geomode;
+    float time;
 } ubo;
 
 layout(binding = 1) buffer RayGeneratorSSBOIn {
@@ -108,11 +112,22 @@ vec3 hsv2rgb(vec3 c) {
     return c.z * mix(vec3(1.0), rgb, c.y);
 }
 
-vec3 rainbow(float t) {
-    if (ubo.colors == 0) return vec3(1.0);
-    if (t == 1.0) return vec3(1.0);
-    t = clamp(t, 0.0, 1.0);
-    return hsv2rgb(vec3(t, 1.0, 1.0));
+vec3 rainbow(Hit h) {
+    float t = h.value;
+    if (ubo.edgemode == 0) return vec3(1.0);
+    vec3 color = vec3(1.0);
+    if (t != 1.0) {
+        t = clamp(t, 0.0, 1.0);
+        color = hsv2rgb(vec3(t, 1.0, 1.0));
+    }
+    if (ubo.edgemode == 2) return mix(background_color, color, h.gradient * h.gradient);
+    if (ubo.edgemode == 3) {
+        float frame = fract(h.gradient - (ubo.time / 1.0));
+        float pulse = pow(frame, 4.0) * pow(1.0 - frame, 1.5);
+        pulse = clamp(pulse * 36.0, 0.0, 3.0);
+        return mix(background_color, color, pulse);
+    }
+    return color;
 }
 
 bool cut_viewport(int rx, int ry) {
@@ -125,7 +140,77 @@ bool cut_viewport(int rx, int ry) {
     return false;
 }
 
+void camera_basis(vec3 position, vec3 look, vec3 up, out vec3 u, out vec3 v, out vec3 w) {
+    w = normalize(position - look);
+    u = normalize(cross(up, w));
+    v = cross(w, u);
+}
+
 Ray create_ray(vec2 rg) {
+    vec3 c_u = ubo.u;
+    vec3 c_v = ubo.v;
+    vec3 c_w = ubo.w;
+    vec3 c_pos = ubo.position;
+    vec3 c_look = ubo.look;
+    vec3 c_up = ubo.up;
+    if (ubo.viewmode > 1) {
+        uint quadrant = rg.x < ubo.width / 2.0 ? (rg.y < ubo.height / 2.0 ? 0 : 2) : (rg.y <  ubo.height / 2.0 ? 1 : 3);
+        float xleft = ceil(((ubo.width - ubo.viewport.x) / 2.0));
+        float ytop = ceil(((ubo.height - ubo.viewport.y) / 2.0));
+        float xslice = rg.x < ubo.width / 2.0 ? rg.x - xleft : rg.x - (ubo.width / 2.0);
+        float yslice = rg.y < ubo.height / 2.0 ? rg.y - ytop : rg.y - (ubo.height / 2.0);
+        rg.x = xslice * 2.0 + xleft;
+        rg.y = yslice * 2.0 + ytop;
+        float ulen = length(ubo.position);
+        if (ubo.viewmode == 2) {
+            if (quadrant == 0) {
+                c_pos = vec3(ulen, 0, 0);
+                c_look = vec3(-1, 0, 0);
+            } else if (quadrant == 1) {
+                c_pos = vec3(0, 0, ulen);
+                c_look = vec3(0, 0, -1);
+            } else if (quadrant == 2) {
+                c_pos = vec3(0, ulen, 0);
+                c_look = vec3(0, -1, 0);
+                c_up = vec3(1, 0, 0);
+            } else {
+                c_pos = vec3(0, -ulen, 0);
+                c_look = vec3(0, 1, 0);
+                c_up = vec3(1, 0, 0);
+            }
+            camera_basis(c_pos, c_look, c_up, c_u, c_v, c_w);
+        } else if (ubo.viewmode == 3) {
+            if (quadrant == 0) {
+                c_pos = normalize(vec3(0.7, 1 , 0)) * ulen;
+                c_look = normalize(vec3(-1, -1, 0));
+            } else if (quadrant == 1) {
+                c_pos = normalize(vec3(0.7, -1 , 0)) * ulen;
+                c_look = normalize(vec3(-1, 1, 0));
+            } else if (quadrant == 2) {
+                c_pos = normalize(vec3(0, 1 , 0.7)) * ulen;
+                c_look = normalize(vec3(0, -1, -1));
+            } else {
+                c_pos = normalize(vec3(0, -1 , 0.7)) * ulen;
+                c_look = normalize(vec3(0, 1, -1));
+            }
+            camera_basis(c_pos, c_look, c_up, c_u, c_v, c_w);
+        } else {
+            if (quadrant == 0) {
+                c_pos = normalize(vec3(0.7, 1 , 0.7)) * ulen;
+                c_look = normalize(vec3(-1, -1, -1));
+            } else if (quadrant == 1) {
+                c_pos = normalize(vec3(0.7, -1 , 0.7)) * ulen;
+                c_look = normalize(vec3(-1, 1, -1));
+            } else if (quadrant == 2) {
+                c_pos = normalize(vec3(-0.7, 1 , 0.7)) * ulen;
+                c_look = normalize(vec3(1, -1, -1));
+            } else {
+                c_pos = normalize(vec3(-0.7, -1 , 0.7)) * ulen;
+                c_look = normalize(vec3(1, 1, -1));
+            }
+            camera_basis(c_pos, c_look, c_up, c_u, c_v, c_w);
+        }
+    }
     float r = ubo.width / 2.0;
     float b = ubo.height / 2.0;
     float l = -1.0 * r;
@@ -134,14 +219,14 @@ Ray create_ray(vec2 rg) {
     float v = b + ((t - b) * (float(rg.y) + 0.5)) / ubo.height;
     float d = (cos(ubo.fov / 2.0) / sin(ubo.fov / 2.0)) * r;
     Ray ray;
-    if (ubo.orthogonal == 1) {
-        float cam_dist = length(ubo.position);
+    if (ubo.viewmode > 0) {
+        float cam_dist = length(c_pos);
         float aspect = ubo.width / ubo.height;
         float u_n = (u / ubo.width) * aspect;
         float v_n = v / ubo.height;
-        ray.direction = normalize(-ubo.w);
-        ray.position  = ubo.position + (ubo.u * u_n * cam_dist) + (ubo.v * v_n * cam_dist);
-        ray.position -= ubo.w * ubo.depth;
+        ray.direction = normalize(-c_w);
+        ray.position  = c_pos + (c_u * u_n * cam_dist) + (c_v * v_n * cam_dist);
+        ray.position -= c_w * ubo.depth;
     } else {
         ray.direction = normalize((ubo.u * u) + (ubo.v * v) - (ubo.w * d));
         ray.position  = ubo.position;
@@ -178,7 +263,7 @@ bool triangle_intersect(Ray ray, uint triangle_ind, inout Hit hit) {
 
 bool edge_intersect(Ray ray, uint edge_ind, inout Hit hit) {
     Edge edge = edgeIn[edge_ind];
-    if (edge.flow == 0 && ubo.colors != 0) return false;
+    if (edge.flow == 0 && ubo.edgemode != 0) return false;
     vec3 pa = vertexIn[edge.a];
     vec3 pb = vertexIn[edge.b];
     vec3 ab = pb - pa;
@@ -205,6 +290,7 @@ bool edge_intersect(Ray ray, uint edge_ind, inout Hit hit) {
     vec3 axis_point = pa + ab_n * proj;
     hit.normal = normalize(hit_pos - axis_point);
     hit.value = min(abs(edge.flow) / EDGE_COLOR_CUTOFF, 1.0);
+    hit.gradient = proj / length(ab);
     return true;
 }
 
@@ -232,7 +318,7 @@ Hit trace(Ray ray, inout uint hit_id) {
         if (!aabb_intersect(ray, node_index)) continue;
         if (node.right == 0xFFFFFFFF) {
             Hit _hit;
-            if (ubo.edgemode != 0) {
+            if (ubo.geomode != 0) {
                 if (edge_intersect(ray, node.left, _hit)) {
                     if (hit.distance == -1.0 || _hit.distance < hit.distance) {
                         hit = _hit;
@@ -309,7 +395,7 @@ vec3 getcolor(vec2 ray_coordinate, inout uint hit_id, inout float hit_distance) 
         gridhit = true;
     }
     if (hit.distance > 0.0) {
-        color = shade(ray, hit, hit_id) * rainbow(hit.value);
+        color = shade(ray, hit, hit_id) * rainbow(hit);
         if (gridhit) {
             color = mix(color, vec3(0.7), gridmix);
         }

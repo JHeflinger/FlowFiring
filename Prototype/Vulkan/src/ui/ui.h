@@ -144,4 +144,8 @@ void UITextInput_(PersistantUIData* data, const char* label, char* buffer, size_
 #define UITextInput(label, buffer, size, width) \
     PERSISTANT_UI(UITextInput_, label, buffer, size, width)
 
+void DisableUI();
+
+void EnableUI();
+
 #endif

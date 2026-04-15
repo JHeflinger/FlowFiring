@@ -35,5 +35,4 @@ Notes of uncertainty:
 
 Fix Notes:
 - So, you completely forgot to use the fact that a face is a hole
-
-ONOT MINUs 4 YOU ARE MINUSING FLOW JUST MINUS 1 WHEN SUBTRACTING YOUR FLOW FROM do to a FIRE
+- make a serial version and randomize the group ordering

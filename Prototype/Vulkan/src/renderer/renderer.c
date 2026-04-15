@@ -14,7 +14,7 @@
 Renderer g_renderer = { 0 };
 Vector2 g_override_resolution = { 0 };
 float g_rft = 0.0f;
-BOOL g_prevmode = FALSE;
+uint32_t g_prevmode = 0;
 
 PipelineFlags GetPipelineFlags() {
     return g_renderer.config.flags;
@@ -44,9 +44,12 @@ void InitializeRenderer() {
     g_renderer.config.flags = PREVIEW_PIPELINE_FLAGS;
     g_renderer.config.orthogonal = FALSE;
     g_renderer.config.depth = 0.0f;
-    g_renderer.config.edgemode = FALSE;
     g_renderer.config.simulate = FALSE;
     g_renderer.config.colors = FALSE;
+    g_renderer.config.viewmode = 0;
+    g_renderer.config.geomode = 0;
+    g_renderer.config.edgemode = 0;
+    g_renderer.config.crossmode = 0;
 
     // initialize min/max BB
     SETVEC3(g_renderer.geometry.bounds.min, FLT_MAX, FLT_MAX, FLT_MAX);
@@ -227,7 +230,7 @@ void ClearTriangles() {
 
 void Render() {
     static BOOL async_update = TRUE;
-    if (g_prevmode != g_renderer.config.edgemode) {
+    if (g_prevmode != g_renderer.config.geomode) {
         VCLEAN_Shaders(&(g_renderer.vulkan.core.shaders));
         VINIT_Shaders(&(g_renderer.vulkan.core.shaders));
         vkDeviceWaitIdle(g_renderer.vulkan.core.general.interface);
@@ -238,7 +241,7 @@ void Render() {
         VUPDT_DescriptorSets(g_renderer.vulkan.core.context.renderdata.descriptors);
         g_renderer.geometry.changes.update_bvh = CPUSWAP_LENGTH;
     }
-    g_prevmode = g_renderer.config.edgemode;
+    g_prevmode = g_renderer.config.geomode;
 
     // update render frame time;
     g_rft += GetFrameTime();

@@ -137,7 +137,7 @@ VulkanBoundVariable get_bound_variable(Renderer* renderer, const char* name, siz
 			}
 		};
 	} else if (strcmp(name, "WorkGroupOffsetSSBOIn") == 0) {
-        if (renderer->config.edgemode) {
+        if (renderer->config.geomode) {
     		return (VulkanBoundVariable) {
     			STORAGE_BUFFER,
     			(SchrodingRef) {
@@ -169,7 +169,7 @@ VulkanBoundVariable get_bound_variable(Renderer* renderer, const char* name, siz
     		};
         }
 	} else if (strcmp(name, "WorkGroupHistorySSBOIn") == 0) {
-        if (renderer->config.edgemode) {
+        if (renderer->config.geomode) {
     		return (VulkanBoundVariable) {
     			STORAGE_BUFFER,
     			(SchrodingRef) {
@@ -201,7 +201,7 @@ VulkanBoundVariable get_bound_variable(Renderer* renderer, const char* name, siz
     		};
         }
 	} else if (strcmp(name, "MortonSSBOIn") == 0) {
-        if (renderer->config.edgemode) {
+        if (renderer->config.geomode) {
     		return (VulkanBoundVariable) {
     			STORAGE_BUFFER,
     			(SchrodingRef) {
@@ -233,7 +233,7 @@ VulkanBoundVariable get_bound_variable(Renderer* renderer, const char* name, siz
     		};
         }
 	} else if (strcmp(name, "IndexSSBOIn") == 0) {
-        if (renderer->config.edgemode) {
+        if (renderer->config.geomode) {
     		return (VulkanBoundVariable) {
     			STORAGE_BUFFER,
     			(SchrodingRef) {
@@ -265,7 +265,7 @@ VulkanBoundVariable get_bound_variable(Renderer* renderer, const char* name, siz
     		};
         }
 	} else if (strcmp(name, "MortonSwapSSBOIn") == 0) {
-        if (renderer->config.edgemode) {
+        if (renderer->config.geomode) {
     		return (VulkanBoundVariable) {
     			STORAGE_BUFFER,
     			(SchrodingRef) {
@@ -297,7 +297,7 @@ VulkanBoundVariable get_bound_variable(Renderer* renderer, const char* name, siz
     		};
         }
 	} else if (strcmp(name, "IndexSwapSSBOIn") == 0) {
-        if (renderer->config.edgemode) {
+        if (renderer->config.geomode) {
     		return (VulkanBoundVariable) {
     			STORAGE_BUFFER,
     			(SchrodingRef) {
@@ -329,7 +329,7 @@ VulkanBoundVariable get_bound_variable(Renderer* renderer, const char* name, siz
     		};
         }
 	} else if (strcmp(name, "BoundingBoxSSBOIn") == 0) {
-        if (renderer->config.edgemode) {
+        if (renderer->config.geomode) {
     		return (VulkanBoundVariable) {
     			STORAGE_BUFFER,
     			(SchrodingRef) {
@@ -361,7 +361,7 @@ VulkanBoundVariable get_bound_variable(Renderer* renderer, const char* name, siz
     		};
         }
 	} else if (strcmp(name, "BVHNodeSSBOIn") == 0) {
-        if (renderer->config.edgemode) {
+        if (renderer->config.geomode) {
     		return (VulkanBoundVariable) {
     			STORAGE_BUFFER,
     			(SchrodingRef) {
@@ -393,7 +393,7 @@ VulkanBoundVariable get_bound_variable(Renderer* renderer, const char* name, siz
     		};
         }
 	} else if (strcmp(name, "BucketBaseSSBOIn") == 0) {
-        if (renderer->config.edgemode) {
+        if (renderer->config.geomode) {
     		return (VulkanBoundVariable) {
     			STORAGE_BUFFER,
     			(SchrodingRef) {

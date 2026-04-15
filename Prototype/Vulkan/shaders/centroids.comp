@@ -83,6 +83,9 @@ layout(binding = 7) uniform UniformBufferObject {
     float depth;
     uint edgemode;
     uint colors;
+    uint viewmode;
+    uint geomode;
+    float time;
 } uubo;
 
 layout(push_constant) uniform PushConstants {
@@ -109,7 +112,7 @@ uint interleaveBits(uint x, uint y, uint z) {
 }
 
 void main() {
-    if (uubo.edgemode != 0) {
+    if (uubo.geomode != 0) {
         uint edgeID = gl_GlobalInvocationID.x;
         if (edgeID >= pc.elements) return;
         indexIn[edgeID] = edgeID;

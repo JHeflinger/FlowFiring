@@ -140,11 +140,15 @@ typedef struct {
     BOOL grid;
     BOOL async;
     BOOL orthogonal;
-    BOOL edgemode;
     BOOL simulate;
     BOOL colors;
     float depth;
     PipelineFlags flags;
+    size_t viewmode;
+    size_t geomode;
+    size_t edgemode;
+    size_t crossmode;
+    uint32_t snap;
 } RendererConfig;
 
 #endif

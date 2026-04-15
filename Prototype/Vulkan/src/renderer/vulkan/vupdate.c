@@ -101,7 +101,7 @@ void VUPDT_RecordCommand(VkCommandBuffer command) {
             ((1u << i) & LEAVES_SHADER_FLAG) ||
             ((1u << i) & BVH_SHADER_FLAG) ||
             ((1u << i) & REBIND_SHADER_FLAG)){
-            if (g_vupdt_renderer_ref->config.edgemode) {
+            if (g_vupdt_renderer_ref->config.geomode) {
                 invocations = g_vupdt_renderer_ref->geometry.edges.size;
                 _record_push_constants(g_vupdt_renderer_ref->geometry.edges.size);
             } else {
@@ -112,7 +112,7 @@ void VUPDT_RecordCommand(VkCommandBuffer command) {
 
         if ((1u << i) & HISTORY_SHADER_FLAG) {
             uint32_t wg;
-            if (g_vupdt_renderer_ref->config.edgemode) {
+            if (g_vupdt_renderer_ref->config.geomode) {
                 wg = ceil(g_vupdt_renderer_ref->geometry.edges.size / ((float)INVOCATION_GROUP_SIZE));
             } else {
                 wg = ceil(g_vupdt_renderer_ref->geometry.triangles.size / ((float)INVOCATION_GROUP_SIZE));
@@ -287,6 +287,9 @@ void VUPDT_UniformBuffers(UBOArray* ubos) {
         ubo.depth = g_vupdt_renderer_ref->config.depth;
         ubo.edgemode = (uint32_t)g_vupdt_renderer_ref->config.edgemode;
         ubo.colors = (uint32_t)g_vupdt_renderer_ref->config.colors;
+        ubo.viewmode = (uint32_t)g_vupdt_renderer_ref->config.viewmode;
+        ubo.geomode = (uint32_t)g_vupdt_renderer_ref->config.geomode;
+        ubo.time = GetTime();
         memcpy(ubos->mapped[g_vupdt_renderer_ref->swapchain.index], &ubo, sizeof(UniformBufferObject));
     }
 

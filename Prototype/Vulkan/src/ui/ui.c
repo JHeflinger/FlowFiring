@@ -47,6 +47,7 @@ BOOL g_was_ui_element_just_used = FALSE;
 RenderTexture2D g_ui_scratch_target = { 0 };
 RenderTexture2D g_current_ui_target = { 0 };
 BOOL g_scratch_target_in_use = FALSE;
+BOOL g_ui_disabled = FALSE;
 
 #define LINE_HEIGHT 20
 #define NAMEBAR_HEIGHT 25
@@ -390,7 +391,7 @@ void UIDrawText(const char* text, ...) {
     va_list args;
     va_start(args, text);
     vsnprintf(g_ui_text_buffer, MAX_LINE_WIDTH - 1, text, args);
-    DrawTextEx(FontAsset(), g_ui_text_buffer, g_ui_cursor, LINE_HEIGHT, 0, MappedColor(UI_TEXT_COLOR));
+    DrawTextEx(FontAsset(), g_ui_text_buffer, g_ui_cursor, LINE_HEIGHT, 0, g_ui_disabled ? MappedColor(UI_TEXT_DISABLED) : MappedColor(UI_TEXT_COLOR));
     g_ui_cursor.y += LINE_HEIGHT;
     g_ui_cursor.x = 10;
 }
@@ -406,7 +407,7 @@ void UIDrawSubtleText(const char* text, ...) {
 
 BOOL UIDragFloat_(PersistantUIData* data, float* value, float min, float max, float speed, size_t w) {
     BOOL ret = FALSE;
-    if (InputButtonPressed(IK_MOUSELEFT) &&
+    if (!g_ui_disabled && InputButtonPressed(IK_MOUSELEFT) &&
         CheckCollisionPointRec(
             GetMousePosition(),
             (Rectangle){g_ui_cursor.x + g_ui_position.x, g_ui_cursor.y + g_ui_position.y + 2, w, LINE_HEIGHT - 4})) {
@@ -423,8 +424,12 @@ BOOL UIDragFloat_(PersistantUIData* data, float* value, float min, float max, fl
     char buffer[32] = { 0 };
     snprintf(buffer, 32, "%.3f", *value);
     Vector2 text_size = MeasureTextEx(FontAsset(), buffer, LINE_HEIGHT, 0);
-    DrawRectangle(g_ui_cursor.x, g_ui_cursor.y + 1, w, LINE_HEIGHT - 2, MappedColor(UI_DRAG_FLOAT_COLOR));
-    DrawTextEx(FontAsset(), buffer, (Vector2){ g_ui_cursor.x + (w/2) - (text_size.x/2), g_ui_cursor.y }, LINE_HEIGHT, 0, MappedColor(UI_TEXT_COLOR));
+    DrawRectangle(
+        g_ui_cursor.x, g_ui_cursor.y + 1, w, LINE_HEIGHT - 2,
+        g_ui_disabled ? MappedColor(UI_BOX_DISABLED) : MappedColor(UI_DRAG_FLOAT_COLOR));
+    DrawTextEx(
+        FontAsset(), buffer, (Vector2){ g_ui_cursor.x + (w/2) - (text_size.x/2), g_ui_cursor.y }, LINE_HEIGHT, 0, 
+        g_ui_disabled ? MappedColor(UI_TEXT_DISABLED) : MappedColor(UI_TEXT_COLOR));
     g_ui_cursor.y += LINE_HEIGHT;
     g_ui_cursor.x = 10;
     return ret;
@@ -563,7 +568,7 @@ BOOL UIButton(const char* label, size_t w) {
     float button_width = w < text_size.x + 20 ? text_size.x + 20 : w;
     Color color = MappedColor(PANEL_BTN_BG_COLOR);
     BOOL clicked = FALSE;
-    if (CheckCollisionPointRec(
+    if (!g_ui_disabled && CheckCollisionPointRec(
             GetMousePosition(),
             (Rectangle){g_ui_cursor.x + g_ui_position.x, g_ui_cursor.y + g_ui_position.y + 1, button_width, LINE_HEIGHT - 2})) {
         color = MappedColor(PANEL_BTN_HVR_COLOR);
@@ -571,10 +576,12 @@ BOOL UIButton(const char* label, size_t w) {
         clicked = InputButtonPressed(IK_MOUSELEFT);
     }
     if (clicked) g_was_ui_element_just_used = TRUE;
-    DrawRectangle(g_ui_cursor.x, g_ui_cursor.y + 1, button_width, LINE_HEIGHT - 2, color);
+    DrawRectangle(g_ui_cursor.x, g_ui_cursor.y + 1, button_width, LINE_HEIGHT - 2, 
+                  g_ui_disabled ? MappedColor(UI_BOX_DISABLED) : color);
     Vector2 texpos = g_ui_cursor;
     texpos.x += (button_width - text_size.x) / 2.0f;
-    DrawTextEx(FontAsset(), label, texpos, LINE_HEIGHT, 0, MappedColor(UI_TEXT_COLOR));
+    DrawTextEx(FontAsset(), label, texpos, LINE_HEIGHT, 0, 
+               g_ui_disabled ? MappedColor(UI_TEXT_DISABLED) : MappedColor(UI_TEXT_COLOR));
     g_ui_cursor.y += LINE_HEIGHT;
     g_ui_cursor.x = 10;
     return clicked;
@@ -656,9 +663,9 @@ void UIDropdownMenu_(PersistantUIData* data, size_t width, size_t num_items, cha
     data->arbitrary_counter = func(param, (size_t)-1);
     Vector2 text_size = MeasureTextEx(FontAsset(), items[data->arbitrary_counter], LINE_HEIGHT, 0);
     float button_width = width < text_size.x + 20 ? text_size.x + 20 : width;
-    Color color = MappedColor(PANEL_BTN_BG_COLOR);
+    Color color = g_ui_disabled ? MappedColor(UI_BOX_DISABLED) : MappedColor(PANEL_BTN_BG_COLOR);
     BOOL clicked = FALSE;
-    if (CheckCollisionPointRec(
+    if (!g_ui_disabled && CheckCollisionPointRec(
             GetMousePosition(),
             (Rectangle){g_ui_cursor.x + g_ui_position.x, g_ui_cursor.y + g_ui_position.y + 1, button_width, LINE_HEIGHT - 2})) {
         color = MappedColor(PANEL_BTN_HVR_COLOR);
@@ -669,7 +676,7 @@ void UIDropdownMenu_(PersistantUIData* data, size_t width, size_t num_items, cha
     DrawRectangle(g_ui_cursor.x, g_ui_cursor.y + 1, button_width, LINE_HEIGHT - 2, color);
     Vector2 texpos = g_ui_cursor;
     texpos.x += (button_width - text_size.x) / 2.0f;
-    DrawTextEx(FontAsset(), items[data->arbitrary_counter], texpos, LINE_HEIGHT, 0, MappedColor(UI_TEXT_COLOR));
+    DrawTextEx(FontAsset(), items[data->arbitrary_counter], texpos, LINE_HEIGHT, 0, g_ui_disabled ? MappedColor(UI_TEXT_DISABLED) : MappedColor(UI_TEXT_COLOR));
     if (clicked) {
         g_dropdownmenu_data = (DropdownMenuData) {
             data, items, num_items, TRUE, button_width, param, func,
@@ -728,4 +735,12 @@ void UITextInput_(PersistantUIData* data, const char* label, char* buffer, size_
     }
     g_ui_cursor.x = 10;
     g_ui_cursor.y += LINE_HEIGHT;
+}
+
+void DisableUI() {
+    g_ui_disabled = TRUE;
+}
+
+void EnableUI() {
+    g_ui_disabled = FALSE;
 }

@@ -68,7 +68,6 @@ void DrawDevPanel(float width, float height) {
     UIDrawText("Render Resolution: %dx%d", (int)RenderResolution().x, (int)RenderResolution().y);
 	UICheckboxLabeled("Orthogonal Camera:", &RenderConfig()->orthogonal);
 	UICheckboxLabeled("Enable grid:", &RenderConfig()->grid);
-	UICheckboxLabeled("Show edges only:", &RenderConfig()->edgemode);
 	UICheckboxLabeled("Simulate:", &RenderConfig()->simulate);
 	UICheckboxLabeled("Colors:", &RenderConfig()->colors);
 
