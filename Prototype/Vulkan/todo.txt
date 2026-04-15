@@ -36,3 +36,18 @@ Notes of uncertainty:
 Fix Notes:
 - So, you completely forgot to use the fact that a face is a hole
 - make a serial version and randomize the group ordering
+
+
+1. hover to se value
+2. filter by value
+3. color legend
+4. randomize every time
+5. checker for stable config
+6. statistics 
+7. sphere vis
+8. face coloring
+9. value volume cloud
+10. control directionality
+11. set all edges to x flow
+12. negative flow move pulse in other direction
+13. single fire
