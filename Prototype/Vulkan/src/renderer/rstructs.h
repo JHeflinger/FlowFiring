@@ -139,9 +139,7 @@ typedef struct {
 typedef struct {
     BOOL grid;
     BOOL async;
-    BOOL orthogonal;
     BOOL simulate;
-    BOOL colors;
     float depth;
     PipelineFlags flags;
     size_t viewmode;

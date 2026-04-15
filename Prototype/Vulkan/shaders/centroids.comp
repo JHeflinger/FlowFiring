@@ -79,10 +79,8 @@ layout(binding = 7) uniform UniformBufferObject {
     float fov;
     float width;
     float height;
-    uint orthogonal;
     float depth;
     uint edgemode;
-    uint colors;
     uint viewmode;
     uint geomode;
     float time;

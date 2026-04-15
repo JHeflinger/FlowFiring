@@ -283,10 +283,8 @@ void VUPDT_UniformBuffers(UBOArray* ubos) {
         ubo.viewport[0] = g_vupdt_renderer_ref->viewport.x;
         ubo.viewport[1] = g_vupdt_renderer_ref->viewport.y;
         ubo.grid = (uint32_t)g_vupdt_renderer_ref->config.grid;
-        ubo.orthogonal = (uint32_t)g_vupdt_renderer_ref->config.orthogonal;
         ubo.depth = g_vupdt_renderer_ref->config.depth;
         ubo.edgemode = (uint32_t)g_vupdt_renderer_ref->config.edgemode;
-        ubo.colors = (uint32_t)g_vupdt_renderer_ref->config.colors;
         ubo.viewmode = (uint32_t)g_vupdt_renderer_ref->config.viewmode;
         ubo.geomode = (uint32_t)g_vupdt_renderer_ref->config.geomode;
         ubo.time = GetTime();

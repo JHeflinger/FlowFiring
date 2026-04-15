@@ -66,13 +66,6 @@ void DrawDevPanel(float width, float height) {
     UIDrawText("Render time: %.6f ms", (float)RenderTime());
     UIDrawText("Triangles: %d", (int)NumTriangles());
     UIDrawText("Render Resolution: %dx%d", (int)RenderResolution().x, (int)RenderResolution().y);
-	UICheckboxLabeled("Orthogonal Camera:", &RenderConfig()->orthogonal);
-	UICheckboxLabeled("Enable grid:", &RenderConfig()->grid);
-	UICheckboxLabeled("Simulate:", &RenderConfig()->simulate);
-	UICheckboxLabeled("Colors:", &RenderConfig()->colors);
-
-    UIMoveCursor(0, 20);
-	UIDragFloatLabeled("Cross section depth:", &RenderConfig()->depth, 0.0f, FLT_MAX, 0.01f, 300);
 }
 
 Panel GenerateDiagnosticsPanel() {

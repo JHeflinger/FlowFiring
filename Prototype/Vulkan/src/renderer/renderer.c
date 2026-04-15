@@ -42,10 +42,8 @@ void InitializeRenderer() {
     g_renderer.config.grid = TRUE;
     g_renderer.config.async = TRUE;
     g_renderer.config.flags = PREVIEW_PIPELINE_FLAGS;
-    g_renderer.config.orthogonal = FALSE;
     g_renderer.config.depth = 0.0f;
     g_renderer.config.simulate = FALSE;
-    g_renderer.config.colors = FALSE;
     g_renderer.config.viewmode = 0;
     g_renderer.config.geomode = 0;
     g_renderer.config.edgemode = 0;
