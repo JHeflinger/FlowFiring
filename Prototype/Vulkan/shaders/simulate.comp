@@ -81,10 +81,6 @@ void main() {
     if (pc.skipsize != 0) {
         uint candidates[8] = { e.f1e1, e.f1e2, e.f2e1, e.f2e2, e.f3e1, e.f3e2, e.f4e1, e.f4e2 };
         for (int i = 0; i < 8; i++) {
-            if (candidates[i] == -1) {
-                i++;
-                continue;
-            }
             if (inskip(candidates[i]))
                 pullflow(candidates[i], e);
         }
