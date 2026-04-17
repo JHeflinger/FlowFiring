@@ -29,9 +29,16 @@ layout(push_constant) uniform PushConstants {
 
 layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 
-void pullFlow(uint comingfrom, inout Edge goingto) {
+int calcdegree(Edge e) {
+    int degree = 0;
+    uint candidates[4] = { e.f1e1, e.f2e1, e.f3e1, e.f4e1 };
+    for (int i = 0; i < 4; i++) if (candidates[i] != -1) degree++;
+    return degree;
+}
+
+void pullflow(uint comingfrom, inout Edge goingto) {
     Edge cfrom = edgeIn[comingfrom];
-    if (abs(cfrom.flow) > 4) {
+    if (abs(cfrom.flow) > calcdegree(cfrom)) {
         if (cfrom.a == goingto.a || cfrom.a == goingto.b) {
             if (cfrom.a == goingto.a) {
                 goingto.flow--; // maybe need to reverse +/-?
@@ -65,17 +72,21 @@ void main() {
     }
     Edge e = edgeIn[eid];
     if (inprev(eid)) {
-        if (abs(e.flow) > 4) {
-            if (e.flow < 0) e.flow += 4;
-            else e.flow -= 4;
+        int degree = calcdegree(e);
+        if (abs(e.flow) > degree) {
+            if (e.flow < 0) e.flow += degree;
+            else e.flow -= degree;
         }
     }
     if (pc.skipsize != 0) {
         uint candidates[8] = { e.f1e1, e.f1e2, e.f2e1, e.f2e2, e.f3e1, e.f3e2, e.f4e1, e.f4e2 };
         for (int i = 0; i < 8; i++) {
-            if (inskip(candidates[i])) {
-                pullFlow(candidates[i], e);
+            if (candidates[i] == -1) {
+                i++;
+                continue;
             }
+            if (inskip(candidates[i]))
+                pullflow(candidates[i], e);
         }
     }
     edgeIn[eid].flow = e.flow;

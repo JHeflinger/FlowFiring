@@ -57,7 +57,10 @@ void DrawEditPanel(float width, float height) {
             UICheckbox(&hole);
             changed |= hole != (ref->hole != 0);
             ref->hole = hole;
-            if (changed) UpdateTriangles();
+            if (changed) {
+                UpdateTriangles();
+                UpdateHoles();
+            }
         } else if (g_edit_type == EDIT_SINGLE_EDGE) {
             EdgeMeta* ref = EdgeReference((Edge){ g_edit_item_index, g_edit_item_index_2 });
             UIMoveCursor((width - 20 - UITextWidth("Edit Edge")) / 2.0f, 0);

@@ -51,6 +51,8 @@ Fix Notes:
 15. select edges from edge view - now
 16. better cross section control - now
 
+calc degree
+
 1. get working on mac
 2. make installer
 3. see if you can make a self contained updater

@@ -118,6 +118,7 @@ void ToggleHole() {
         Triangle* tref = TriangleReference(tid);
         tref->hole = !tref->hole;
         UpdateTriangles();
+        UpdateHoles();
     }
 }
 

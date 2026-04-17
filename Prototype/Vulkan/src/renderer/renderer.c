@@ -105,6 +105,7 @@ void InitializeRenderer() {
         eref = EdgeReference((Edge){ 143, 142 });
         eref->flow = val;
     }
+    UpdateHoles();
 }
 
 void DestroyRenderer() {
@@ -248,6 +249,51 @@ void Render() {
 
     // update render frame time;
     g_rft += GetFrameTime();
+
+    // update holes
+    if (g_renderer.geometry.changes.update_holes) {
+        g_renderer.geometry.changes.update_holes = FALSE;
+        for (size_t i = 0; i < g_renderer.geometry.triangles.size; i++) {
+            Triangle t = g_renderer.geometry.triangles.data[i];
+            EdgeID em[3] ={ HASHMAP_EdgeMap_get(&g_renderer.geometry.emap, EdgePrimed((Edge){ t.a, t.b })),
+                HASHMAP_EdgeMap_get(&g_renderer.geometry.emap, EdgePrimed((Edge){ t.a, t.c })),
+                HASHMAP_EdgeMap_get(&g_renderer.geometry.emap, EdgePrimed((Edge){ t.c, t.b }))
+            };
+            if (t.hole) {
+                for (size_t j = 0; j < 3; j++) {
+                    EdgeID a = em[j];
+                    EdgeID b = em[(j + 1)%3];
+                    EdgeID c = em[(j + 2)%3];
+                    EdgeMeta* e = &(g_renderer.geometry.edges.data[a]);
+                    EdgeID* alters[8] = { &(e->f1e1), &(e->f1e2), &(e->f2e1), &(e->f2e2), &(e->f3e1), &(e->f3e2), &(e->f4e1), &(e->f4e2) };
+                    for (size_t k = 0; k < 8; k++)
+                        if (*alters[k] == b || *alters[k] == c) *alters[k] = (EdgeID)-1;
+                }
+            } else {
+                for (size_t j = 0; j < 3; j++) {
+                    EdgeID a = em[j];
+                    EdgeID b = em[(j + 1)%3];
+                    EdgeID c = em[(j + 2)%3];
+                    EdgeMeta* e = &(g_renderer.geometry.edges.data[a]);
+                    EdgeID* alters[8] = { &(e->f1e1), &(e->f1e2), &(e->f2e1), &(e->f2e2), &(e->f3e1), &(e->f3e2), &(e->f4e1), &(e->f4e2) };
+                    BOOL connected = FALSE;
+                    for (size_t k = 0; k < 8; k++)
+                        if (*alters[k] == b || *alters[k] == c) connected = TRUE;
+                    if (!connected) {
+                        for (size_t k = 0; k < 8; k++) {
+                            if (*alters[k] == (EdgeID)-1) {
+                                EZ_ASSERT(k < 7 && *alters[k + 1] == (EdgeID)-1, "Broken hole connectivity detected");
+                                *alters[k] = b;
+                                *alters[k + 1] = c;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+    }
 
     // detect changes in described data
     if (async_update) {
@@ -463,6 +509,11 @@ void UpdateEdges() {
     g_renderer.geometry.changes.update_edges = TRUE;
 }
 
+void UpdateHoles() {
+    g_renderer.geometry.changes.update_holes = TRUE;
+    UpdateEdges();
+}
+
 Vector2 RenderResolution() {
     return g_renderer.dimensions;
 }
@@ -629,6 +680,7 @@ void SaveSimulation() {
         (uint32_t)g_toh_dims.y,
         (uint32_t)g_toh_dims.z,
         0, 0, g_renderer.camera };
+    conf.config.simulate = FALSE;
     ARRLIST_EdgeWrite ew = { 0 };
     ARRLIST_FaceWrite fw = { 0 };
     for (size_t i = 0; i < g_renderer.geometry.triangles.size; i++)

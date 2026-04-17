@@ -109,6 +109,7 @@ typedef struct {
     BOOL update_vertices;
     BOOL update_triangles;
     BOOL update_edges;
+    BOOL update_holes;
     size_t update_bvh;
 } ChangeSet;
 
