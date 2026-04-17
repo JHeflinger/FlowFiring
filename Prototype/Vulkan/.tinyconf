@@ -26,7 +26,7 @@ LIB vendor/raylib/lib
 WINDOWS LIB platform/windows/vulkan/libs
 WINDOWS LIB platform/windows/GLFW
 MACOS LINK vulkan
-MACOS LINK :macos_libraylib.a
+MACOS LINK raylib
 MACOS LINK pthread
 MACOS LINK m
 MACOS FRAMEWORK Cocoa
