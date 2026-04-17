@@ -137,6 +137,19 @@ typedef struct {
 } Geometry;
 
 typedef struct {
+    VertexID a;
+    VertexID b;
+    int32_t flow;
+} EdgeWrite;
+DECLARE_ARRLIST(EdgeWrite);
+
+typedef struct {
+    TriangleID id;
+    BOOL hole;
+} FaceWrite;
+DECLARE_ARRLIST(FaceWrite);
+
+typedef struct {
     BOOL grid;
     BOOL async;
     BOOL simulate;
@@ -148,5 +161,15 @@ typedef struct {
     size_t crossmode;
     uint32_t snap;
 } RendererConfig;
+
+typedef struct {
+    RendererConfig config;
+    uint32_t w;
+    uint32_t l;
+    uint32_t h;
+    uint32_t edgewrites;
+    uint32_t facewrites;
+    SimpleCamera camera;
+} SaveConfig;
 
 #endif

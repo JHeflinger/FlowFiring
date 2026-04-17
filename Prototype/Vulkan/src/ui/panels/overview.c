@@ -4,7 +4,7 @@
 #include "ui/panels/edit.h"
 
 void DrawOverviewPanel(float width, float height) {
-    UIDrawText("Add To Scene...");
+    UIDrawText("Configure Scene...");
     UIMoveCursor(width - 45, -20);
     if (UIButton("+", 0)) {
         UIPopup(GenerateAddObjectPopup());

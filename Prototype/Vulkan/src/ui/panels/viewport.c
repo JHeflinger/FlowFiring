@@ -3,17 +3,21 @@
 #include "renderer/overlay.h"
 #include "renderer/rmath.h"
 #include "ui/panels/edit.h"
+#include "core/utils.h"
 #include "data/input.h"
 #include "core/binds.h"
 #include <easylogger.h>
 #include <rlgl.h>
 #include <math.h>
 
+#define COLOR_LEGEND_RANGE 6
+
 RenderTexture2D g_viewport_target;
-BOOL g_show_hints = FALSE;
+BOOL g_show_hints = TRUE;
 BOOL g_rfocused = FALSE;
 BOOL g_lfocused = FALSE;
 BOOL g_zfocused = FALSE;
+BOOL g_show_legend = TRUE;
 vec2 g_mousepoint = { 0 };
 Vector2 g_viewport_position = { 0 };
 Vector2 g_viewport_dimensions = { 0 };
@@ -117,6 +121,10 @@ void ToggleHole() {
     }
 }
 
+void ToggleLegend() {
+    g_show_legend = !g_show_legend;
+}
+
 void DrawViewportPanel(float width, float height) {
     DrawTexturePro(
         g_viewport_target.texture,
@@ -125,6 +133,15 @@ void DrawViewportPanel(float width, float height) {
         (Vector2){ 0, 0 }, 0, WHITE);
     if (g_show_hints && HoveredPanel() && strcmp(HoveredPanel(), "Viewport") == 0) {
         DrawCurrentBinds(0, 0);
+    }
+    if (g_show_legend) {
+        float bsize = 20.0f;
+        float bspacing = 10.0f;
+        for (float i = 1.0f; i <= COLOR_LEGEND_RANGE; i += 1.0f) {
+            DrawRectangle(width - bsize - bspacing, bspacing + ((i - 1.0f) * (bsize + bspacing)), bsize, bsize, Rainbow(i / COLOR_LEGEND_RANGE));
+            UISetCursor(width - bsize - bspacing - UITextWidth("%d%s", (int)i, i >= COLOR_LEGEND_RANGE ? "+" : "") - 10.0f, bspacing + ((i - 1.0f) * (bsize + bspacing)));
+            UIDrawSubtleText("%d%s", (int)i, i >= COLOR_LEGEND_RANGE ? "+" : "");
+        }
     }
     g_viewport_dimensions = (Vector2){ width, height };
     g_viewport_position = UIGetPosition();
@@ -208,5 +225,6 @@ Panel GenerateViewportPanel() {
 	AddBind("fit viewport camera to model", FitCamera, (BindCommand){ IK_FIT_CAMERA, BIND_KEY_PRESSED });
 	AddBind("Toggle face hole", ToggleHole, (BindCommand){ IK_TOGGLE_HOLE, BIND_KEY_PRESSED });
     AddBind("toggle input hints", ToggleHints, (BindCommand){ IK_TOGGLE_HINTS, BIND_KEY_PRESSED });
+    AddBind("toggle color legend", ToggleLegend, (BindCommand){ IK_TOGGLE_LEGEND, BIND_KEY_PRESSED });
     return p;
 }

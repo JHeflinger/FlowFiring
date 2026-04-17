@@ -15,6 +15,7 @@ Renderer g_renderer = { 0 };
 Vector2 g_override_resolution = { 0 };
 float g_rft = 0.0f;
 uint32_t g_prevmode = 0;
+Vector3 g_toh_dims = { 0 };
 
 PipelineFlags GetPipelineFlags() {
     return g_renderer.config.flags;
@@ -45,9 +46,10 @@ void InitializeRenderer() {
     g_renderer.config.depth = 0.0f;
     g_renderer.config.simulate = FALSE;
     g_renderer.config.viewmode = 0;
-    g_renderer.config.geomode = 0;
-    g_renderer.config.edgemode = 0;
+    g_renderer.config.geomode = 1;
+    g_renderer.config.edgemode = 3;
     g_renderer.config.crossmode = 0;
+    g_prevmode = g_renderer.config.geomode;
 
     // initialize min/max BB
     SETVEC3(g_renderer.geometry.bounds.min, FLT_MAX, FLT_MAX, FLT_MAX);
@@ -90,17 +92,19 @@ void InitializeRenderer() {
     // set overlay context
     SetOverlayContext(&g_renderer);
 
-    // TODO:delete
-    SubmitTOH(5, 5, 5);
-    Triangle* tref = TriangleReference(637);
-    tref->hole = TRUE;
-    EdgeMeta* eref = EdgeReference((Edge){ 142, 109 });
-    int val = 100;
-    eref->flow = val;
-    eref = EdgeReference((Edge){ 143, 109 });
-    eref->flow = val;
-    eref = EdgeReference((Edge){ 143, 142 });
-    eref->flow = val;
+    // load or default scene
+    if (!LoadSimulation()) {
+        SubmitTOH(5, 5, 5);
+        Triangle* tref = TriangleReference(637);
+        tref->hole = TRUE;
+        EdgeMeta* eref = EdgeReference((Edge){ 142, 109 });
+        int val = 100;
+        eref->flow = val;
+        eref = EdgeReference((Edge){ 143, 109 });
+        eref->flow = val;
+        eref = EdgeReference((Edge){ 143, 142 });
+        eref->flow = val;
+    }
 }
 
 void DestroyRenderer() {
@@ -228,6 +232,7 @@ void ClearTriangles() {
 
 void Render() {
     static BOOL async_update = TRUE;
+    BOOL georeload = FALSE;
     if (g_prevmode != g_renderer.config.geomode) {
         VCLEAN_Shaders(&(g_renderer.vulkan.core.shaders));
         VINIT_Shaders(&(g_renderer.vulkan.core.shaders));
@@ -236,8 +241,8 @@ void Render() {
         VINIT_BVH(&(g_renderer.vulkan.core.geometry.bvh));
         VCLEAN_BVH(&(g_renderer.vulkan.core.geometry.edge_bvh));
         VINIT_BVH(&(g_renderer.vulkan.core.geometry.edge_bvh));
-        VUPDT_DescriptorSets(g_renderer.vulkan.core.context.renderdata.descriptors);
         g_renderer.geometry.changes.update_bvh = CPUSWAP_LENGTH;
+        georeload = TRUE;
     }
     g_prevmode = g_renderer.config.geomode;
 
@@ -252,7 +257,8 @@ void Render() {
         BOOL descriptor_changes = 
             g_renderer.geometry.changes.update_triangles |
             g_renderer.geometry.changes.update_vertices |
-            g_renderer.geometry.changes.update_edges;
+            g_renderer.geometry.changes.update_edges |
+            georeload;
 
         // set bvh reconstruction
         if (descriptor_changes) g_renderer.geometry.changes.update_bvh = CPUSWAP_LENGTH;
@@ -555,7 +561,7 @@ const char* GPUHeapType(size_t i) {
     return "SHARE";
 }
 
-void SubmitTOH(size_t width, size_t height, size_t length) {
+void SubmitTOH(size_t width, size_t length, size_t height) {
     VertexID vstart = NumVertices();
     vec3 origin = { 0.0f - ((float)width/2.0f)*1.0f, 0.0f - ((float)(height + 1)/2.0f)*0.7f, 0.0f - ((float)length/2.0f)*1.0f };
     for (size_t h = 0; h <= height + 1; h++) {
@@ -607,10 +613,93 @@ void SubmitTOH(size_t width, size_t height, size_t length) {
     }
     PrimeEdges();
     FitCamera();
+    g_toh_dims = (Vector3){ width, length, height };
 }
 
 void RestartSimulation() {
     UpdateTriangles();
     UpdateEdges();
     UpdateVertices();
+}
+
+void SaveSimulation() {
+    SaveConfig conf = (SaveConfig){
+        g_renderer.config,
+        (uint32_t)g_toh_dims.x,
+        (uint32_t)g_toh_dims.y,
+        (uint32_t)g_toh_dims.z,
+        0, 0, g_renderer.camera };
+    ARRLIST_EdgeWrite ew = { 0 };
+    ARRLIST_FaceWrite fw = { 0 };
+    for (size_t i = 0; i < g_renderer.geometry.triangles.size; i++)
+        if (g_renderer.geometry.triangles.data[i].hole)
+            ARRLIST_FaceWrite_add(&fw, (FaceWrite){ (TriangleID)i, TRUE });
+    for (size_t i = 0; i < g_renderer.geometry.edges.size; i++)
+        if (g_renderer.geometry.edges.data[i].flow != 0)
+            ARRLIST_EdgeWrite_add(&ew, (EdgeWrite){
+                g_renderer.geometry.edges.data[i].a,
+                g_renderer.geometry.edges.data[i].b,
+                g_renderer.geometry.edges.data[i].flow });
+    conf.edgewrites = ew.size;
+    conf.facewrites = fw.size;
+    size_t writesize = sizeof(SaveConfig) + (sizeof(EdgeWrite) * ew.size) + (sizeof(FaceWrite) * fw.size);
+    char* writebuffer = EZ_ALLOC(writesize, sizeof(char));
+    memcpy(writebuffer, &conf, sizeof(SaveConfig));
+    memcpy(writebuffer + sizeof(SaveConfig), ew.data, ew.size * sizeof(EdgeWrite));
+    memcpy(writebuffer + sizeof(SaveConfig) + (ew.size * sizeof(EdgeWrite)), fw.data, fw.size * sizeof(FaceWrite));
+    FILE* file = fopen(".ffsession", "wb");
+    if (!file || fwrite(writebuffer, 1, writesize, file) != writesize) {
+        fclose(file);
+        EZ_ERROR("Unable to write to a file for session saving");
+    }
+    fclose(file);
+    EZ_FREE(writebuffer);
+    ARRLIST_EdgeWrite_clear(&ew);
+    ARRLIST_FaceWrite_clear(&fw);
+}
+
+BOOL LoadSimulation() {
+    FILE* file = fopen(".ffsession", "rb");
+    SaveConfig conf = { 0 };
+    if (!file) return FALSE;
+    if (fread(&conf, sizeof(SaveConfig), 1, file) != 1) {
+        fclose(file);
+        EZ_WARN("Corrupt session save detected - skipping loading...");
+        return FALSE;
+    }
+    EdgeWrite* ew = NULL;
+    FaceWrite* fw = NULL;
+    if (conf.edgewrites > 0) {
+        ew = EZ_ALLOC(conf.edgewrites, sizeof(EdgeWrite));
+        if (fread(ew, 1, conf.edgewrites * sizeof(EdgeWrite), file) != conf.edgewrites * sizeof(EdgeWrite)) {
+            fclose(file);
+            EZ_FREE(ew);
+            EZ_WARN("Corrupt session save detected - skipping loading...");
+            return FALSE;
+        }
+    }
+    if (conf.facewrites > 0) {
+        fw = EZ_ALLOC(conf.facewrites, sizeof(FaceWrite));
+        if (fread(fw, 1, conf.facewrites * sizeof(FaceWrite), file) != conf.facewrites * sizeof(FaceWrite)) {
+            fclose(file);
+            EZ_FREE(fw);
+            EZ_WARN("Corrupt session save detected - skipping loading...");
+            return FALSE;
+        }
+    }
+    SubmitTOH(conf.w, conf.l, conf.h);
+    for (size_t i = 0; i < conf.edgewrites; i++)
+        EdgeReference(EdgePrimed((Edge){ ew[i].a, ew[i].b }))->flow = ew[i].flow;
+    for (size_t i = 0; i < conf.facewrites; i++)
+        TriangleReference(fw[i].id)->hole = fw[i].hole;
+    g_renderer.config = conf.config;
+    g_renderer.camera = conf.camera;
+    if (ew) EZ_FREE(ew);
+    if (fw) EZ_FREE(fw);
+    return TRUE;
+}
+
+void ClearSimulation() {
+    ClearTriangles();
+    ClearVertices();
 }

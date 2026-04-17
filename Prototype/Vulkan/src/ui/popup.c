@@ -22,7 +22,7 @@ int add_object_popup_stage_0(size_t x, size_t y, size_t w, size_t h) {
     UISetCursor(0, ypos + 10);
     DrawRectangle(xpos, ypos, width, height, MappedColor(PANEL_BG_COLOR));
     UIMoveCursor(xpos + (width / 2) - (UITextWidth("Add to Scene") / 2), 0);
-    UIDrawText("Add to Scene");
+    UIDrawText("Configure Scene");
     UIMoveCursor(xpos + (width / 2) - (button_width / 2) - 10, 20);
     if (UIButton("Tetrahedral-Octahedral Honeycomb", button_width)) return 0;
     UISetCursor(xpos + (width / 2) - (button_width / 2), ypos + height - 40);
@@ -39,8 +39,8 @@ int add_toh(size_t x, size_t y, size_t w, size_t h) {
     UISetPosition(0, 0);
     UISetCursor(0, ypos + 10);
     DrawRectangle(xpos, ypos, width, height, MappedColor(PANEL_BG_COLOR));
-    UIMoveCursor(xpos + (width / 2) - (UITextWidth("Add Tetrahedral-Octahedral Honeycomb") / 2), 0);
-    UIDrawText("Add Tetrahedral-Octahedral Honeycomb");
+    UIMoveCursor(xpos + (width / 2) - (UITextWidth("Tetrahedral-Octahedral Honeycomb") / 2), 0);
+    UIDrawText("Tetrahedral-Octahedral Honeycomb");
 
     UIMoveCursor(0, 15);
     UIMoveCursor(xpos + (width / 2) - (UITextWidth("Dimensions") / 2) - 10, 0);
@@ -60,7 +60,8 @@ int add_toh(size_t x, size_t y, size_t w, size_t h) {
 
     UISetCursor(xpos + (width / 2) - (button_width / 2), ypos + height - 70);
     if (UIButton("Submit", button_width)) {
-        SubmitTOH(g_toh_w, g_toh_h, g_toh_l);
+        ClearSimulation();
+        SubmitTOH(g_toh_w, g_toh_l, g_toh_h);
         return 0;
     }
     UISetCursor(xpos + (width / 2) - (button_width / 2), ypos + height - 40);

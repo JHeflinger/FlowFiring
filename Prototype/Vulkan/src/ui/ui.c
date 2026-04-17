@@ -548,7 +548,7 @@ BOOL UIDragInt_(PersistantUIData* data, int32_t* value, int32_t min, int32_t max
     }
     if (g_active_ui_element == data) {
         int32_t prev = *value;
-        if (GetMouseDelta().x * speed < 0 && GetMouseDelta().x * speed * -1 > *value)
+        if (GetMouseDelta().x * speed < min && GetMouseDelta().x * speed * -1 > *value)
             *value = 0;
         else
             *value += GetMouseDelta().x * speed;

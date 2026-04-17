@@ -4,7 +4,7 @@
 #define AO_DIST 0.5
 #define EPS 0.000001
 #define EDGE_RADIUS 0.05
-#define EDGE_COLOR_CUTOFF 10.0
+#define EDGE_COLOR_CUTOFF 6.0
 
 struct BVHNode {
     vec3 minBB;
@@ -111,16 +111,16 @@ vec3 hsv2rgb(vec3 c) {
 }
 
 vec3 rainbow(Hit h) {
-    float t = h.value;
-    if (ubo.edgemode == 0) return vec3(1.0);
+    float t = abs(h.value);
+    if (ubo.edgemode == 0 || ubo.geomode == 0) return vec3(1.0);
     vec3 color = vec3(1.0);
-    if (t != 1.0) {
+    if (t < 1.0) {
         t = clamp(t, 0.0, 1.0);
         color = hsv2rgb(vec3(t, 1.0, 1.0));
     }
     if (ubo.edgemode == 2) return mix(background_color, color, h.gradient * h.gradient);
     if (ubo.edgemode == 3) {
-        float frame = fract(h.gradient - (ubo.time / 1.0));
+        float frame = fract((h.value > 0 ? h.gradient : -h.gradient) - (ubo.time / 1.0));
         float pulse = pow(frame, 4.0) * pow(1.0 - frame, 1.5);
         pulse = clamp(pulse * 36.0, 0.0, 3.0);
         return mix(background_color, color, pulse);
@@ -287,7 +287,7 @@ bool edge_intersect(Ray ray, uint edge_ind, inout Hit hit) {
     hit.position = hit_pos;
     vec3 axis_point = pa + ab_n * proj;
     hit.normal = normalize(hit_pos - axis_point);
-    hit.value = min(abs(edge.flow) / EDGE_COLOR_CUTOFF, 1.0);
+    hit.value = edge.flow / EDGE_COLOR_CUTOFF;
     hit.gradient = proj / length(ab);
     return true;
 }

@@ -11,3 +11,5 @@ IMPL_ARRLIST(Triangle);
 IMPL_ARR_ARRLIST(vec4);
 IMPL_ARR_ARRLIST(vec3);
 IMPL_HASHMAP(Edge, size_t, EdgeMap, hash_edge);
+IMPL_ARRLIST(EdgeWrite);
+IMPL_ARRLIST(FaceWrite);

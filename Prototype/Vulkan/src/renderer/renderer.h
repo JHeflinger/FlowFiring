@@ -81,8 +81,14 @@ size_t GPUHeapBudget(size_t i);
 
 const char* GPUHeapType(size_t i);
 
-void SubmitTOH(size_t width, size_t height, size_t length);
+void SubmitTOH(size_t width, size_t length, size_t height);
 
 void RestartSimulation();
+
+void SaveSimulation();
+
+BOOL LoadSimulation();
+
+void ClearSimulation();
 
 #endif

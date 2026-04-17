@@ -38,16 +38,19 @@ Fix Notes:
 - make a serial version and randomize the group ordering
 
 
-1. hover to se value
-2. filter by value
-3. color legend
-4. randomize every time
-5. checker for stable config
-6. statistics 
-7. sphere vis
-8. face coloring
-9. value volume cloud
-10. control directionality
-11. set all edges to x flow
-12. negative flow move pulse in other direction
-13. single fire
+1. hover to se value - now
+2. filter by value - now
+5. checker for stable config - later
+6. statistics - later
+7. sphere vis - now
+8. face coloring - later
+9. value volume cloud - later
+11. set all edges to x flow - now
+12. rework selected edge to show moving flow - now
+13. single fire - later
+15. select edges from edge view - now
+16. better cross section control - now
+
+1. get working on mac
+2. make installer
+3. see if you can make a self contained updater

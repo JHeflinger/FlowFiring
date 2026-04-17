@@ -43,11 +43,11 @@ void InitEditor() {
     ((UI*)((UI*)g_ui->left)->left)->vertical = TRUE;
     ((UI*)g_ui->left)->divide = 350;
     ARRLIST_Panel_add(&(((UI*)(((UI*)g_ui->right)->right))->panels), GenerateSimulatePanel());
-    ARRLIST_Panel_add(&(((UI*)(((UI*)g_ui->right)->right))->panels), GenerateDiagnosticsPanel());
     ARRLIST_Panel_add(&(((UI*)(((UI*)g_ui->right)->left))->panels), GenerateOverviewPanel());
     ARRLIST_Panel_add(&(((UI*)(((UI*)g_ui->left)->right))->panels), GenerateViewportPanel());
     ARRLIST_Panel_add(&(GetLeftUI(GetLeftUI(GetLeftUI(g_ui)))->panels), GenerateEditPanel());
     ARRLIST_Panel_add(&(GetRightUI(GetLeftUI(GetLeftUI(g_ui)))->panels), GenerateGraphPanel());
+    ARRLIST_Panel_add(&(GetRightUI(GetLeftUI(GetLeftUI(g_ui)))->panels), GenerateDiagnosticsPanel());
     g_ui->divide = 1250;
     SetPrimaryUI(g_ui);
     DevInitialize();
@@ -114,6 +114,9 @@ void RunEditor() {
         // resize callback
         EditorResized();
     }
+
+    // Save simulation
+    SaveSimulation();
 
     // Close game
     CleanEditor();

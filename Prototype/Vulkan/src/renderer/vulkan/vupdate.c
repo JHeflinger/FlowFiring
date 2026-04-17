@@ -40,7 +40,7 @@ void VUPDT_RecordCommand(VkCommandBuffer command) {
     VkCommandBufferBeginInfo beginInfo = { 0 };
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     VkResult result = vkBeginCommandBuffer(command, &beginInfo);
-    EZ_ASSERT(result == VK_SUCCESS, "Failed to begin recording command buffer!");
+    EZ_ASSERT(result == VK_SUCCESS, "Failed to begin recording command buffer!"); 
 
     if (g_vupdt_renderer_ref->geometry.changes.update_bvh) {
         g_vupdt_renderer_ref->geometry.changes.update_bvh--;
@@ -50,9 +50,16 @@ void VUPDT_RecordCommand(VkCommandBuffer command) {
     }
 
     size_t simulates = 0;
+    int group_order[4] = { 0, 1, 2, 3 };
     if (g_vupdt_renderer_ref->config.simulate) {
         simulates = 5;
         g_vupdt_renderer_ref->config.flags |= SIMULATE_PIPELINE_FLAGS;
+        for (int i = 3; i > 0; i--) {
+            int j = rand() % (i + 1);
+            int temp = group_order[i];
+            group_order[i] = group_order[j];
+            group_order[j] = temp;
+        }
     } else {
         g_vupdt_renderer_ref->config.flags &= ~(SIMULATE_PIPELINE_FLAGS);
     }
@@ -77,15 +84,17 @@ void VUPDT_RecordCommand(VkCommandBuffer command) {
             size_t pc = 0;
             size_t offset_index = 5 - simulates;
             if (offset_index > 0) {
-                pc = g_vupdt_renderer_ref->geometry.offsets[offset_index - 1];
-                for (size_t j = 0; j < offset_index - 1; j++) ps += g_vupdt_renderer_ref->geometry.offsets[j];
+                size_t poff_ind = group_order[offset_index - 1];
+                pc = g_vupdt_renderer_ref->geometry.offsets[poff_ind];
+                for (size_t j = 0; j < poff_ind; j++) ps += g_vupdt_renderer_ref->geometry.offsets[j];
             }
             if (offset_index < 4) {
-                sc = g_vupdt_renderer_ref->geometry.offsets[offset_index];
-                for (size_t j = 0; j < offset_index; j++) ss += g_vupdt_renderer_ref->geometry.offsets[j];
+                size_t soff_ind = group_order[offset_index];
+                sc = g_vupdt_renderer_ref->geometry.offsets[soff_ind];
+                for (size_t j = 0; j < soff_ind; j++) ss += g_vupdt_renderer_ref->geometry.offsets[j];
             }
-            if (offset_index == 4) invocations = g_vupdt_renderer_ref->geometry.offsets[3];
-            else invocations = g_vupdt_renderer_ref->geometry.edges.size - g_vupdt_renderer_ref->geometry.offsets[offset_index];
+            if (offset_index == 4) invocations = pc;
+            else invocations = g_vupdt_renderer_ref->geometry.edges.size - sc;
             VulkanPushConstants push = { 0, 0, ss, sc, ps, pc };
             vkCmdPushConstants(
                 command,

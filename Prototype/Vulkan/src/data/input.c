@@ -32,6 +32,7 @@ void InitializeInput() {
     g_input_map.keymap[IK_A_OVERRIDE] = KEY_A;
     g_input_map.keymap[IK_TOGGLE_HOLE] = KEY_Q;
     g_input_map.keymap[IK_SELECT_EDGE] = KEY_E;
+    g_input_map.keymap[IK_TOGGLE_LEGEND] = KEY_K;
 
     g_input_map.btnmap[IK_MOUSELEFT] = MOUSE_BUTTON_LEFT;
     g_input_map.btnmap[IK_MOUSERIGHT] = MOUSE_BUTTON_RIGHT;
@@ -64,6 +65,7 @@ void InitializeInput() {
     g_input_map.keynames[IK_A_OVERRIDE] = "A";
     g_input_map.keynames[IK_TOGGLE_HOLE] = "Q";
     g_input_map.keynames[IK_SELECT_EDGE] = "E";
+    g_input_map.keynames[IK_TOGGLE_LEGEND] = "K";
 
     g_input_map.btnnames[IK_MOUSELEFT] = "LEFT CLICK";
     g_input_map.btnnames[IK_MOUSERIGHT] = "RIGHT CLICK";

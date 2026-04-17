@@ -1,4 +1,6 @@
+# Vulkan Prototype
 Prototype/Vulkan/build/*
+.ffsession
 
 # Python / build
 __pycache__/
