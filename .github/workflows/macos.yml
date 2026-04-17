@@ -7,7 +7,7 @@ on:
 
 jobs:
   build-macos:
-    runs-on: macos-latest
+    runs-on: macos-13
 
     steps:
       - name: Checkout repository
@@ -36,9 +36,9 @@ jobs:
       # compiler can find vulkan/vulkan.h and libvulkan.dylib.
       - name: Set Vulkan environment (Homebrew paths)
         run: |
-          echo "VULKAN_SDK=/opt/homebrew" >> $GITHUB_ENV
-          echo "CPATH=/opt/homebrew/include:$CPATH" >> $GITHUB_ENV
-          echo "LIBRARY_PATH=/opt/homebrew/lib:$LIBRARY_PATH" >> $GITHUB_ENV
+          echo "VULKAN_SDK=/usr/local" >> $GITHUB_ENV
+          echo "CPATH=/usr/local/include:$CPATH" >> $GITHUB_ENV
+          echo "LIBRARY_PATH=/usr/local/lib:$LIBRARY_PATH" >> $GITHUB_ENV
 
       # ── Build ────────────────────────────────────────────────────────────────
       - name: Build (production)
