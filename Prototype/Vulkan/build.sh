@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 # create all build directories if it does not exist
 if [ ! -d "build" ]; then
     mkdir "build"
@@ -16,9 +18,18 @@ fi
 cd ..
 cd ..
 
+# detect platform
+PLATFORM=$(uname -s)
+
+# macOS: expose Vulkan SDK paths to compiler
+if [ "$PLATFORM" == "Darwin" ] && [ -n "$VULKAN_SDK" ]; then
+    export CPATH="${VULKAN_SDK}/include:${CPATH:-}"
+    export LIBRARY_PATH="${VULKAN_SDK}/lib:${LIBRARY_PATH:-}"
+fi
+
 # compile shaders
 echo "Compiling shaders..."
-startTime=$(date +%s%N)
+startTime=$(date +%s)
 SHADERS_UP_TO_DATE="true"
 while IFS= read -r file; do
     filename=$(basename "$file")
@@ -46,29 +57,32 @@ while IFS= read -r file; do
         fi
     fi
 done < <(find "shaders" -type f \( -name "*.vert" -o -name "*.frag" -o -name "*.comp" \))
-endTime=$(date +%s%N)
-elapsed=$(((endTime - startTime) / 1000000))
-hh=$((elapsed / 3600000))
-mm=$(((elapsed % 3600000) / 60000))
-ss=$(((elapsed % 60000) / 1000))
-cc=$((elapsed % 1000))
+endTime=$(date +%s)
+elapsed=$((endTime - startTime))
 if [ "$SHADERS_UP_TO_DATE" == "true" ]; then
     echo -e "\033[1A\033[0KShaders are currently \033[32mup to date\033[0m"
 else
-    echo -e "\033[32mFinished\033[0m building shaders in ${hh}:${mm}:${ss}.${cc}"
+    echo -e "\033[32mFinished\033[0m building shaders in ${elapsed}s"
 fi
 
 # download builder
-if [ ! -f "build/tiny_linux.bin" ] || [ "$1" == "-u" ] || [ "$2" == "-u" ]; then
-    if [ -f "build/tiny_linux.bin" ]; then
+if [ "$PLATFORM" = "Darwin" ]; then
+    URL="https://github.com/JHeflinger/tiny/raw/refs/heads/main/bin/tiny_macos.bin"
+    OUT="tiny_macos.bin"
+else
+    URL="https://github.com/JHeflinger/tiny/raw/refs/heads/main/bin/tiny_linux.bin"
+    OUT="tiny_linux.bin"
+fi
+if [ ! -f "build/$OUT" ] || [ "$1" == "-u" ] || [ "$2" == "-u" ]; then
+    if [ -f "build/$OUT" ]; then
         echo "Updating tiny builder..."
-        rm build/tiny_linux.bin
+        rm "build/$OUT"
     else
         echo "Downloading tiny builder..."
     fi
     cd build
-    wget -q https://github.com/JHeflinger/tiny/raw/refs/heads/main/bin/tiny_linux.bin
-    chmod +x tiny_linux.bin
+    curl -L -s -o "$OUT" "$URL"
+    chmod +x "$OUT"
     cd ..
 fi
 
@@ -77,7 +91,7 @@ PROD=""
 if [ "$1" == "-p" ] || [ "$2" == "-p" ] || [ "$3" == "-p" ]; then
     PROD="-prod"
 fi
-./build/tiny_linux.bin $PROD
+./build/$OUT $PROD
 if [ $? -ne 0 ]; then
     exit 1
 fi
