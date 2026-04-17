@@ -1,0 +1,57 @@
+name: macOS Build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:   # lets you trigger it manually from the GitHub UI
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── Dependencies ────────────────────────────────────────────────────────
+      # glslc comes from the glslang package (used by your build.sh for shaders)
+      # molten-vk provides the Vulkan-on-Metal translation layer
+      # vulkan-loader provides libvulkan.dylib
+      # glfw and raylib are linked directly
+      - name: Install dependencies
+        run: |
+          brew install \
+            glslang \
+            molten-vk \
+            vulkan-headers \
+            vulkan-loader \
+            glfw \
+            raylib
+
+      # The LunarG Vulkan SDK sets VULKAN_SDK; your build.sh already checks
+      # for this on Darwin and exports CPATH/LIBRARY_PATH from it.
+      # When installing via Homebrew instead, we point those manually so the
+      # compiler can find vulkan/vulkan.h and libvulkan.dylib.
+      - name: Set Vulkan environment (Homebrew paths)
+        run: |
+          echo "VULKAN_SDK=/opt/homebrew" >> $GITHUB_ENV
+          echo "CPATH=/opt/homebrew/include:$CPATH" >> $GITHUB_ENV
+          echo "LIBRARY_PATH=/opt/homebrew/lib:$LIBRARY_PATH" >> $GITHUB_ENV
+
+      # ── Build ────────────────────────────────────────────────────────────────
+      - name: Build (production)
+        run: ./publish_macos.sh
+
+      # ── Package as .app bundle ───────────────────────────────────────────────
+      - name: Package .app bundle
+        run: ./package_macos.sh
+
+      # ── Upload artifact ──────────────────────────────────────────────────────
+      # The zipped .app will appear in the Actions run under "Artifacts".
+      # You can also attach it to a GitHub Release with a release workflow.
+      - name: Upload .app artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Prism-macOS
+          path: Prism.zip
+          if-no-files-found: error
