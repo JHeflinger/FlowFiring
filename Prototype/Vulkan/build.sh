@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # create all build directories if it does not exist
 if [ ! -d "build" ]; then
     mkdir "build"
@@ -16,9 +17,18 @@ fi
 cd ..
 cd ..
 
+# detect platform
+PLATFORM=$(uname -s)
+
+# macOS: expose Vulkan SDK paths to compiler
+if [ "$PLATFORM" == "Darwin" ] && [ -n "$VULKAN_SDK" ]; then
+    export CPATH="${VULKAN_SDK}/include:${CPATH:-}"
+    export LIBRARY_PATH="${VULKAN_SDK}/lib:${LIBRARY_PATH:-}"
+fi
+
 # compile shaders
 echo "Compiling shaders..."
-startTime=$(date +%s%N)
+startTime=$(date +%s)
 SHADERS_UP_TO_DATE="true"
 while IFS= read -r file; do
     filename=$(basename "$file")
@@ -46,30 +56,36 @@ while IFS= read -r file; do
         fi
     fi
 done < <(find "shaders" -type f \( -name "*.vert" -o -name "*.frag" -o -name "*.comp" \))
-endTime=$(date +%s%N)
-elapsed=$(((endTime - startTime) / 1000000))
-hh=$((elapsed / 3600000))
-mm=$(((elapsed % 3600000) / 60000))
-ss=$(((elapsed % 60000) / 1000))
-cc=$((elapsed % 1000))
+endTime=$(date +%s)
+elapsed=$((endTime - startTime))
 if [ "$SHADERS_UP_TO_DATE" == "true" ]; then
     echo -e "\033[1A\033[0KShaders are currently \033[32mup to date\033[0m"
 else
-    echo -e "\033[32mFinished\033[0m building shaders in ${hh}:${mm}:${ss}.${cc}"
+    echo -e "\033[32mFinished\033[0m building shaders in ${elapsed}s"
 fi
 
-# download builder
-if [ ! -f "build/tiny_linux.bin" ] || [ "$1" == "-u" ] || [ "$2" == "-u" ]; then
-    if [ -f "build/tiny_linux.bin" ]; then
-        echo "Updating tiny builder..."
-        rm build/tiny_linux.bin
-    else
-        echo "Downloading tiny builder..."
+# get or build tiny
+if [ "$PLATFORM" == "Darwin" ]; then
+    TINY_BIN="build/tiny_darwin.bin"
+    if [ ! -f "$TINY_BIN" ] || [ "$1" == "-u" ] || [ "$2" == "-u" ]; then
+        echo "Building tiny for macOS..."
+        cc tiny.c -o "$TINY_BIN" -lpthread
+        chmod +x "$TINY_BIN"
     fi
-    cd build
-    wget -q https://github.com/JHeflinger/tiny/raw/refs/heads/main/bin/tiny_linux.bin
-    chmod +x tiny_linux.bin
-    cd ..
+else
+    TINY_BIN="build/tiny_linux.bin"
+    if [ ! -f "$TINY_BIN" ] || [ "$1" == "-u" ] || [ "$2" == "-u" ]; then
+        if [ -f "$TINY_BIN" ]; then
+            echo "Updating tiny builder..."
+            rm "$TINY_BIN"
+        else
+            echo "Downloading tiny builder..."
+        fi
+        cd build
+        wget -q https://github.com/JHeflinger/tiny/raw/refs/heads/main/bin/tiny_linux.bin
+        chmod +x tiny_linux.bin
+        cd ..
+    fi
 fi
 
 # run builder
@@ -77,7 +93,7 @@ PROD=""
 if [ "$1" == "-p" ] || [ "$2" == "-p" ] || [ "$3" == "-p" ]; then
     PROD="-prod"
 fi
-./build/tiny_linux.bin $PROD
+./$TINY_BIN $PROD
 if [ $? -ne 0 ]; then
     exit 1
 fi

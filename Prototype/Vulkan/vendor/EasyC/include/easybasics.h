@@ -1,0 +1,36 @@
+#ifndef EASYBASICS_H
+#define EASYBASICS_H
+
+#include "easyobjects.h"
+#include <stdlib.h>
+#include <stddef.h>
+
+DECLARE_ARRLIST(size_t);
+DECLARE_ARRLIST(int);
+DECLARE_ARRLIST(float);
+DECLARE_ARRLIST(char);
+DECLARE_ARRLIST(uint32_t);
+DECLARE_ARRLIST(int32_t);
+DECLARE_ARRLIST(uint64_t);
+DECLARE_ARRLIST(int64_t);
+DECLARE_ARRLIST(uint16_t);
+DECLARE_ARRLIST(int16_t);
+DECLARE_ARRLIST(uint8_t);
+DECLARE_ARRLIST(int8_t);
+
+DECLARE_ARRLIST_NAMED(voidPtr, void*);
+
+DECLARE_PQUEUE(size_t);
+DECLARE_PQUEUE(int);
+DECLARE_PQUEUE(float);
+DECLARE_PQUEUE(char);
+DECLARE_PQUEUE(uint32_t);
+DECLARE_PQUEUE(int32_t);
+DECLARE_PQUEUE(uint64_t);
+DECLARE_PQUEUE(int64_t);
+DECLARE_PQUEUE(uint16_t);
+DECLARE_PQUEUE(int16_t);
+DECLARE_PQUEUE(uint8_t);
+DECLARE_PQUEUE(int8_t);
+
+#endif

@@ -25,5 +25,15 @@ WINDOWS LINK :win_x64_libraylib.a
 LIB vendor/raylib/lib
 WINDOWS LIB platform/windows/vulkan/libs
 WINDOWS LIB platform/windows/GLFW
+MACOS LINK vulkan
+MACOS LINK raylib
+MACOS LINK pthread
+MACOS LINK m
+MACOS FRAMEWORK Cocoa
+MACOS FRAMEWORK IOKit
+MACOS FRAMEWORK CoreVideo
+MACOS FRAMEWORK OpenGL
+MACOS INCLUDE /opt/homebrew/include
+MACOS LIB /opt/homebrew/lib
 SOURCE vendor/EasyC/include
 FLAG audit

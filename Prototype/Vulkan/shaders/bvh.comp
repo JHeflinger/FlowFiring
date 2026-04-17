@@ -28,7 +28,7 @@ layout(push_constant) uniform PushConstants {
 
 layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 
-int clz(uint x) {
+int count_leading_zeros(uint x) {
     if (x == 0) return 32;
     return 31 - findMSB(x);
 }
@@ -39,8 +39,8 @@ int commonPrefix(int i, int j) {
     uint a = mortonIn[i];
     uint b = mortonIn[j];
     if (a == b)
-        return 32 + int(clz(i ^ j));
-    return int(clz(a ^ b));
+        return 32 + int(count_leading_zeros(i ^ j));
+    return int(count_leading_zeros(a ^ b));
 }
 
 void main() {

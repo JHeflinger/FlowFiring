@@ -1,0 +1,5 @@
+PROJECT include
+MAIN test/testing.c
+WINDOWS LINK winpthread
+WINDOWS LINK ws2_32
+LINK m

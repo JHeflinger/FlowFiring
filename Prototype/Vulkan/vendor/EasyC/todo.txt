@@ -1,0 +1,8 @@
+- create tests for condition variables
+- lazy arena allocator:
+    - arena allocator but you can "free" blocks
+    - whenever you attempt to allocate, you check two locations:
+      1. check backwards moving pointer if it is pointing to a chunk big enough
+      2. if big enough, allocate to that chunk, and move backwards moving pointer forwards.
+      3. if not big enough, move backwards moving pointer back one block and allocate at the end of the arena instead
+    - dont forget that when you "free" a block merge it with the blocks around it if they are free as well
