@@ -612,6 +612,9 @@ BOOL VINIT_General(VulkanGeneral* general) {
     createInfo.pApplicationInfo = &appInfo;
     createInfo.enabledExtensionCount = (uint32_t)(g_vinit_renderer_ref->vulkan.metadata.extensions.required.size);
     createInfo.ppEnabledExtensionNames = g_vinit_renderer_ref->vulkan.metadata.extensions.required.data;
+    #ifdef __APPLE__
+        createInfo.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+    #endif
     VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo = { 0 };
     if (ENABLE_VK_VALIDATION_LAYERS) {
         createInfo.enabledLayerCount = g_vinit_renderer_ref->vulkan.metadata.validation.size;
@@ -674,7 +677,9 @@ BOOL VINIT_General(VulkanGeneral* general) {
         vkGetPhysicalDeviceFeatures(devices[i], &deviceFeatures);
         if (deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) curr_score += 10000;
         curr_score += deviceProperties.limits.maxImageDimension2D;
-        if (!deviceFeatures.geometryShader) curr_score = 0;
+        #ifndef __APPLE__
+            if (!deviceFeatures.geometryShader) curr_score = 0;
+        #endif
         if (!deviceFeatures.samplerAnisotropy) curr_score = 0;
         if (curr_score > score) {
             score = curr_score;
@@ -741,6 +746,13 @@ BOOL VINIT_Metadata(VulkanMetadata* metadata) {
     if (ENABLE_VK_VALIDATION_LAYERS) {
         ARRLIST_StaticString_add(&(metadata->extensions.required), VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
     }
+
+    #ifdef __APPLE__
+        // MoltenVK portability extensions
+        ARRLIST_StaticString_add(&(metadata->extensions.required), VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
+        ARRLIST_StaticString_add(&(metadata->extensions.required), VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
+        ARRLIST_StaticString_add(&(metadata->extensions.device), "VK_KHR_portability_subset");
+    #endif
 
     return TRUE;
 }
