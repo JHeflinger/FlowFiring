@@ -3,11 +3,11 @@ name: macOS Build
 on:
   push:
     branches: [main]
-  workflow_dispatch:   # lets you trigger it manually from the GitHub UI
+  workflow_dispatch:
 
 jobs:
   build-macos:
-    runs-on: macos-13
+    runs-on: macos-latest
 
     steps:
       - name: Checkout repository
@@ -15,11 +15,6 @@ jobs:
         with:
           submodules: recursive
 
-      # ── Dependencies ────────────────────────────────────────────────────────
-      # glslc comes from the glslang package (used by your build.sh for shaders)
-      # molten-vk provides the Vulkan-on-Metal translation layer
-      # vulkan-loader provides libvulkan.dylib
-      # glfw and raylib are linked directly
       - name: Install dependencies
         run: |
           brew install \
@@ -32,21 +27,16 @@ jobs:
 
       - name: Set Vulkan environment (Homebrew paths)
         run: |
-          echo "VULKAN_SDK=/usr/local" >> $GITHUB_ENV
-          echo "CPATH=/usr/local/include:$CPATH" >> $GITHUB_ENV
-          echo "LIBRARY_PATH=/usr/local/lib:$LIBRARY_PATH" >> $GITHUB_ENV
+          echo "VULKAN_SDK=/opt/homebrew" >> $GITHUB_ENV
+          echo "CPATH=/opt/homebrew/include:$CPATH" >> $GITHUB_ENV
+          echo "LIBRARY_PATH=/opt/homebrew/lib:$LIBRARY_PATH" >> $GITHUB_ENV
 
-      # ── Build ────────────────────────────────────────────────────────────────
       - name: Build (production)
         run: ./publish_macos.sh
 
-      # ── Package as .app bundle ───────────────────────────────────────────────
       - name: Package .app bundle
         run: ./package_macos.sh
 
-      # ── Upload artifact ──────────────────────────────────────────────────────
-      # The zipped .app will appear in the Actions run under "Artifacts".
-      # You can also attach it to a GitHub Release with a release workflow.
       - name: Upload .app artifact
         uses: actions/upload-artifact@v4
         with:
