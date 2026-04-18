@@ -30,10 +30,6 @@ jobs:
             glfw \
             raylib
 
-      # The LunarG Vulkan SDK sets VULKAN_SDK; your build.sh already checks
-      # for this on Darwin and exports CPATH/LIBRARY_PATH from it.
-      # When installing via Homebrew instead, we point those manually so the
-      # compiler can find vulkan/vulkan.h and libvulkan.dylib.
       - name: Set Vulkan environment (Homebrew paths)
         run: |
           echo "VULKAN_SDK=/usr/local" >> $GITHUB_ENV
