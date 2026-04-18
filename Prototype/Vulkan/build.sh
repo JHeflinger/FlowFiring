@@ -65,6 +65,15 @@ else
     echo -e "\033[32mFinished\033[0m building shaders in ${elapsed}s"
 fi
 
+# for mac - compile builder instead
+if [ "$PLATFORM" = "Darwin" ] && [ ! -f "build/tiny_macos.bin" ]; then
+    cd build
+    curl -L -s -o "tiny.c" "https://raw.githubusercontent.com/JHeflinger/tiny/refs/heads/main/tiny.c"
+    gcc -Wall -O2 tiny.c -o tiny_macos.bin -pthread
+    rm tiny.c
+    cd ..
+fi
+
 # download builder
 if [ "$PLATFORM" = "Darwin" ]; then
     URL="https://github.com/JHeflinger/tiny/raw/refs/heads/main/bin/tiny_macos.bin"
