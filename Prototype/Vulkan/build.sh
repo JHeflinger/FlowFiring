@@ -75,15 +75,6 @@ if [ "$PLATFORM" = "Darwin" ] && [ ! -f "build/tiny_macos.bin" ]; then
     cd ..
 fi
 
-echo "ALERT!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-ls /opt/homebrew/opt/molten-vk/lib
-file /opt/homebrew/opt/molten-vk/lib/libMoltenVK.a
-uname -m
-ls -l /opt/homebrew/opt/molten-vk/lib/libMoltenVK.a
-readlink /opt/homebrew/opt/molten-vk/lib/libMoltenVK.a
-ar -t /opt/homebrew/opt/molten-vk/lib/libMoltenVK.a | head
-lipo -info /opt/homebrew/opt/molten-vk/lib/libMoltenVK.a
-
 # download builder
 if [ "$PLATFORM" = "Darwin" ]; then
     URL="https://github.com/JHeflinger/tiny/raw/refs/heads/main/bin/tiny_macos.bin"
