@@ -32,17 +32,15 @@ cp "$BINARY_SRC" "${MACOS_DIR}/${APP_NAME}_bin"
 chmod +x "${MACOS_DIR}/${APP_NAME}_bin"
 
 # ── 4. Copy runtime assets into Resources ────────────────────────────────────
-# Shaders (compiled .spv files)
+mkdir -p "${RESOURCES_DIR}/shaders"
 if [ -d "$SHADER_SRC" ]; then
-    cp -r "$SHADER_SRC" "${RESOURCES_DIR}/shaders"
+    cp -R "$SHADER_SRC"/. "${RESOURCES_DIR}/shaders/"
 fi
-# Asset files (fonts, textures, etc.)
+if [ -d "$SHADERS_RAW_SRC" ]; then
+    cp -R "$SHADERS_RAW_SRC"/. "${RESOURCES_DIR}/shaders/"
+fi
 if [ -d "$ASSETS_SRC" ]; then
     cp -r "$ASSETS_SRC" "${RESOURCES_DIR}/assets"
-fi
-# Asset files (fonts, textures, etc.)
-if [ -d "$SHADERS_RAW_SRC" ]; then
-    cp -r "$SHADERS_RAW_SRC" "${RESOURCES_DIR}/shaders"
 fi
 
 # ── 5. Launcher script ───────────────────────────────────────────────────────
