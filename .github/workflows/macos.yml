@@ -23,7 +23,8 @@ jobs:
             vulkan-headers \
             vulkan-loader \
             glfw \
-            raylib
+            raylib \
+            spirv-cross
 
       - name: Set Vulkan environment (Homebrew paths)
         run: |
@@ -33,6 +34,24 @@ jobs:
 
       - name: Build (production)
         run: ./publish_macos.sh
+
+      - name: Validate shaders compile to Metal
+        run: |
+          rc=0
+          for spv in Prototype/Vulkan/build/shaders/*.spv; do
+            name=$(basename "$spv" .spv)
+            msl="/tmp/${name}.metal"
+            if ! spirv-cross --msl --msl-version 20000 "$spv" --output "$msl"; then
+              echo "::error file=Prototype/Vulkan/shaders/${name}::SPIRV-Cross failed"
+              rc=1
+              continue
+            fi
+            if ! xcrun -sdk macosx metal -c "$msl" -o "/tmp/${name}.air"; then
+              echo "::error file=Prototype/Vulkan/shaders/${name}::Metal compile failed"
+              rc=1
+            fi
+          done
+          exit $rc
 
       - name: Package .app bundle
         run: ./package_macos.sh
