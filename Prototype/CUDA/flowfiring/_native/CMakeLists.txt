@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.18)
 project(flowfiring_native LANGUAGES CXX)
 
-option(WITH_CUDA "Enable CUDA support" ON)
+option(WITH_CUDA "Enable CUDA support" OFF)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)

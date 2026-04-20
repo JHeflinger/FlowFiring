@@ -7,15 +7,17 @@ firing of independent edge sets.
 
 ## Install
 
-Requires Python >= 3.12 and [uv](https://docs.astral.sh/uv/).
+Requires Python >= 3.13 and [uv](https://docs.astral.sh/uv/).
 
 ```bash
 # CPU only (OpenMP parallel + sequential firing)
 uv sync
+uv pip install -e .
 
 # With CUDA (requires nvcc in PATH)
 export PATH="/usr/local/cuda/bin:$PATH"
 CMAKE_ARGS="-DWITH_CUDA=ON -DCMAKE_BUILD_TYPE=Release" uv sync
+CMAKE_ARGS="-DWITH_CUDA=ON -DCMAKE_BUILD_TYPE=Release" uv pip install -e . 
 ```
 
 ## Viewer

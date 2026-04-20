@@ -342,7 +342,10 @@ py::dict build_grid_2d_full(int rows, int cols,
 
 py::dict build_grid_2d_quad_full(int rows, int cols,
                                  bool has_hollow, int x_lo, int y_lo, int x_hi, int y_hi,
-                                 bool with_colors) {
+                                 bool with_colors) 
+{
+    // Z^2 grid sitting at z=0
+    
     auto is_hollow_cell = [&](int i, int j) {
         return has_hollow && i >= x_lo && i < x_hi && j >= y_lo && j < y_hi;
     };
@@ -353,12 +356,12 @@ py::dict build_grid_2d_quad_full(int rows, int cols,
 
     // edge_index[("h"|"v", i, j)] -> edge index
     // Encode as: key = type * 1000000 + i * 1000 + j (sufficient for grids < 1000)
-    // Actually, use a map for safety
     std::unordered_map<int64_t, int> edge_index;
     auto make_key = [](int type, int i, int j) -> int64_t {
         return (int64_t)type * 100000000LL + (int64_t)i * 10000LL + (int64_t)j;
     };
 
+    // Note that deletion criteria are different for h and v edges
     // Horizontal edges
     for (int j = 0; j <= rows; ++j) {
         for (int i = 0; i < cols; ++i) {
