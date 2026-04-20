@@ -2,8 +2,8 @@
 
 set -e # exit immediately on any error
 
-APP_NAME="Prism"
-BUNDLE_ID="com.yourname.prism"
+APP_NAME="Flow"
+BUNDLE_ID="com.yourname.flow"
 MIN_MACOS="12.0"
 BINARY_SRC="Prototype/Vulkan/build/bin.exe"
 SHADER_SRC="Prototype/Vulkan/build/shaders"
@@ -66,7 +66,7 @@ if [ ! -L "build/shaders" ]; then
 fi
 
 # Launch the actual binary
-exec "${SCRIPT_DIR}/Prism_bin" "$@"
+exec "${SCRIPT_DIR}/Flow_bin" "$@"
 EOF
 chmod +x "${MACOS_DIR}/${APP_NAME}"
 
@@ -132,13 +132,13 @@ EOF
 
 # ── 8. Zip for distribution ──────────────────────────────────────────────────
 echo "Zipping ${APP_DIR}..."
-zip -r --symlinks "Prism.zip" "$APP_DIR"
+zip -r --symlinks "Flow.zip" "$APP_DIR"
 
 echo ""
-echo "Done! Prism.zip is ready for distribution."
+echo "Done! Flow.zip is ready for distribution."
 echo ""
 echo "To test locally:"
-echo "  unzip Prism.zip && open Prism.app"
+echo "  unzip Flow.zip && open Flow.app"
 echo ""
 echo "NOTE: On first launch, Gatekeeper will block the app because it is not"
 echo "code-signed. Users can bypass this by right-clicking the .app and"

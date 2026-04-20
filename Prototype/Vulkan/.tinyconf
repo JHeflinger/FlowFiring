@@ -25,7 +25,10 @@ WINDOWS LINK :win_x64_libraylib.a
 LIB vendor/raylib/lib
 WINDOWS LIB platform/windows/vulkan/libs
 WINDOWS LIB platform/windows/GLFW
-MACOS LINK vulkan
+MACOS LIB /opt/homebrew/opt/molten-vk/lib
+MACOS LIB /opt/homebrew/opt/glfw/lib
+MACOS LINK MoltenVK
+MACOS LINK glfw3
 MACOS LINK macos_libraylib
 MACOS LINK pthread
 MACOS LINK m
