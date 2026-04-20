@@ -27,7 +27,7 @@ WINDOWS LIB platform/windows/vulkan/libs
 WINDOWS LIB platform/windows/GLFW
 MACOS LIB /opt/homebrew/opt/molten-vk/lib
 MACOS LIB /opt/homebrew/opt/glfw/lib
-MACOS LINK :libMoltenVK.a
+MACOS RAW /opt/homebrew/opt/molten-vk/lib/libMoltenVK.a
 MACOS LINK glfw3
 MACOS LINK macos_libraylib
 MACOS LINK pthread
