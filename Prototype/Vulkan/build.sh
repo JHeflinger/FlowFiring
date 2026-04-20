@@ -71,7 +71,7 @@ if [ "$PLATFORM" = "Darwin" ] && [ ! -f "build/tiny_macos.bin" ]; then
     curl -L -s -o "tiny.c" "https://raw.githubusercontent.com/JHeflinger/tiny/refs/heads/main/tiny.c"
     gcc -Wall -O2 tiny.c -o tiny_macos.bin -pthread
 
-    gcc tiny.c -o shitty_temp /opt/homebrew/opt/molten-vk/lib/libMoltenVK.a
+    ./tiny_macos.bin -v
 
     rm tiny.c
     cd ..
