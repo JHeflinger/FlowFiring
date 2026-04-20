@@ -80,6 +80,8 @@ file /opt/homebrew/opt/molten-vk/lib/libMoltenVK.a
 uname -m
 ls -l /opt/homebrew/opt/molten-vk/lib/libMoltenVK.a
 readlink /opt/homebrew/opt/molten-vk/lib/libMoltenVK.a
+ar -t /opt/homebrew/opt/molten-vk/lib/libMoltenVK.a | head
+lipo -info /opt/homebrew/opt/molten-vk/lib/libMoltenVK.a
 
 # download builder
 if [ "$PLATFORM" = "Darwin" ]; then
