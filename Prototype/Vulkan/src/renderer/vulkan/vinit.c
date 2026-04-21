@@ -752,6 +752,11 @@ BOOL VINIT_Metadata(VulkanMetadata* metadata) {
         ARRLIST_StaticString_add(&(metadata->extensions.required), VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
         ARRLIST_StaticString_add(&(metadata->extensions.required), VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
         ARRLIST_StaticString_add(&(metadata->extensions.device), "VK_KHR_portability_subset");
+        uint32_t glfwExtCount = 0;
+        const char** glfwExts = glfwGetRequiredInstanceExtensions(&glfwExtCount);
+        for (uint32_t i = 0; i < glfwExtCount; i++) {
+            ARRLIST_StaticString_add(&(metadata->extensions.required), glfwExts[i]);
+        }
     #endif
 
     return TRUE;
