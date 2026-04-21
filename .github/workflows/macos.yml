@@ -21,7 +21,6 @@ jobs:
             shaderc \
             molten-vk \
             vulkan-headers \
-            vulkan-loader \
             glfw \
             raylib \
             spirv-cross
