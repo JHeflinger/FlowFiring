@@ -130,6 +130,8 @@ EOF
 #     # <key>CFBundleIconFile</key><string>AppIcon</string>
 # fi
 
+codesign --force --deep --sign - "${APP_DIR}"
+
 # ── 8. Zip for distribution ──────────────────────────────────────────────────
 echo "Zipping ${APP_DIR}..."
 zip -r --symlinks "Flow.zip" "$APP_DIR"
