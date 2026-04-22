@@ -24,6 +24,7 @@ import sys
 import math
 import argparse
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import bpy  # type: ignore
@@ -89,7 +90,6 @@ sim_z_layers = []          # per-edge z-layer (int or float)
 sim_unique_layers = []     # sorted unique layer values
 sim_layer_indices = []     # per-edge index into sim_unique_layers
 sim_label_objs = []        # per-edge FONT curve objects for numeric labels
-_label_draw_handle = None  # SpaceView3D draw handler for viewport billboarding
 
 sim_B = None
 sim_face_centroids = None
@@ -101,6 +101,16 @@ _edge_obj = None
 _face_obj = None
 _glyph_obj = None
 _update_mesh_fn = None
+
+# Original argparse Namespace; source of render-only knobs when restarting
+# from the panel (the panel exposes sim knobs but not camera/resolution/etc.).
+_cli_args = None
+
+# Scene framing (set by setup_render_scene, read by rotating camera handler
+# and the Reset Camera operator). Kept up-to-date on every rebuild.
+_cam_center = None      # np.ndarray (3,)
+_cam_extent = None      # float
+_cam_is_flat = False    # bool: True for Z2/Z2tess-like complexes
 
 
 def _apply_view_mode():
@@ -149,8 +159,9 @@ def parse_args():
                         help="Cycles render samples")
     parser.add_argument("--render-res", type=str, default="1920x1080",
                         help="Render resolution WxH")
-    parser.add_argument("--camera-elev", type=float, default=30.0,
-                        help="Camera elevation angle in degrees")
+    parser.add_argument("--camera-elev", type=float, default=None,
+                        help="Camera elevation angle in degrees "
+                             "(default: 30 for 3D, 75 for flat 2D)")
     parser.add_argument("--camera-azim", type=float, default=45.0,
                         help="Camera azimuth angle in degrees")
     parser.add_argument("--camera-distance", type=float, default=1.8,
@@ -168,6 +179,12 @@ def parse_args():
                         help="Show only the flowing packet "
                              "(tubes/arrows hidden). Default shows "
                              "tubes + arrows with no packet animation.")
+    parser.add_argument("--packet-speed", type=float, default=1.8,
+                        help="Packet travel speed in edges/second "
+                             "(FPS-independent; default 1.8)")
+    parser.add_argument("--frames-per-fire", type=int, default=1,
+                        help="Fire one sweep every N frames "
+                             "(default 1 = fire every frame)")
     return parser.parse_args(script_args)
 
 
@@ -490,7 +507,10 @@ def build_curl_template_object():
     thickness = 0.025
     arrow_len = 0.09
     n_arc = 24
-    angles = np.linspace(np.pi / 2, -np.pi, n_arc)
+    # CCW sweep (π/2 → 2π, covering 3π/2 radians). Viewed from +normal
+    # (which is the RHR normal of the face cycle), the glyph rotates CCW,
+    # matching F>0 = "flow follows face cycle direction" = CCW from +normal.
+    angles = np.linspace(np.pi / 2, 2 * np.pi, n_arc)
     inner = np.stack([(R - thickness) * np.cos(angles),
                       (R - thickness) * np.sin(angles),
                       np.zeros(n_arc)], axis=1)
@@ -529,8 +549,13 @@ def _on_view_mode_change(self, context):
     _request_mesh_update()
 
 
-# Blender layer visibility UI
+# Blender panel UI + sim-control properties
+_INIT_MODES = ("triangle", "quad", "cubic", "Z2", "Z2tess",
+               "hollow-face", "hollow-octa")
+
+
 class FlowFireProperties(bpy.types.PropertyGroup):
+    # --- View knobs ---
     z_min: bpy.props.FloatProperty(
         name="Z Min", default=-1e6, soft_min=-100, soft_max=100,
     )
@@ -538,29 +563,72 @@ class FlowFireProperties(bpy.types.PropertyGroup):
         name="Z Max", default=1e6, soft_min=-100, soft_max=100,
     )
     hidden_alpha: bpy.props.FloatProperty(
-        name="Hidden Opacity",
-        default=0.0,
-        min=0.0,
-        max=1.0,
+        name="Hidden Opacity", default=0.0, min=0.0, max=1.0,
     )
-    show_arrows: bpy.props.BoolProperty(
-        name="Show Arrows",
-        default=True,
-    )
+    show_arrows: bpy.props.BoolProperty(name="Show Arrows", default=True)
     show_flow_labels: bpy.props.BoolProperty(
-        name="Show Flow Labels",
-        default=True,
-    )
+        name="Show Flow Labels", default=True)
     show_edges: bpy.props.BoolProperty(
-        name="Edges",
-        default=True,
-        update=_on_view_mode_change,
-    )
+        name="Edges", default=True, update=_on_view_mode_change)
     show_faces: bpy.props.BoolProperty(
-        name="Faces",
-        default=False,
-        update=_on_view_mode_change,
-    )
+        name="Faces", default=False, update=_on_view_mode_change)
+
+    # --- Sim knobs (used on Restart) ---
+    init_mode: bpy.props.EnumProperty(
+        name="Init", default="quad",
+        items=[(s, s, "") for s in _INIT_MODES])
+    size: bpy.props.IntProperty(name="Size", default=10, min=2, max=100)
+    initial_flow: bpy.props.IntProperty(name="Initial", default=1000, min=1)
+    seed: bpy.props.IntProperty(name="Seed", default=42, min=0)
+    shuffle: bpy.props.BoolProperty(name="Shuffle", default=False)
+    single_step: bpy.props.BoolProperty(name="Single Step", default=False)
+    prefire: bpy.props.IntProperty(
+        name="Prefire", default=0, soft_min=-1, soft_max=10000)
+    hollow_face: bpy.props.BoolProperty(name="Hollow Face", default=False)
+    use_arrows: bpy.props.BoolProperty(name="Arrows", default=False)
+    use_packet_only: bpy.props.BoolProperty(name="Packet Only", default=False)
+    use_gpu: bpy.props.BoolProperty(name="GPU", default=False)
+    use_flow_labels: bpy.props.BoolProperty(
+        name="Build Flow Labels", default=False)
+
+    # --- Camera knobs (applied on Restart) ---
+    camera_elev: bpy.props.FloatProperty(
+        name="Elev", default=30.0, soft_min=-90.0, soft_max=90.0,
+        description="Camera elevation in degrees (north hemisphere when > 0)")
+    camera_azim: bpy.props.FloatProperty(
+        name="Azim", default=45.0, soft_min=-180.0, soft_max=180.0)
+    camera_distance: bpy.props.FloatProperty(
+        name="Dist", default=1.8, min=0.1, soft_max=10.0,
+        description="Camera distance as multiple of scene extent")
+    rotate_camera: bpy.props.BoolProperty(
+        name="Rotate Camera", default=False,
+        description="Orbit the camera around the scene center over time. "
+        "Rate is in degrees per second")
+    rotate_rate: bpy.props.FloatProperty(
+        name="Rate (deg/s)", default=30.0, soft_min=-360.0, soft_max=360.0,
+        description="Rotation speed in degrees per wall-clock second")
+
+    # --- Animation speed ---
+    packet_speed: bpy.props.FloatProperty(
+        name="Packet Speed",
+        default=1.8, min=0.0, soft_max=10.0,
+        description="Packet travel speed in edges per second "
+        "(FPS-independent; applied on Restart)")
+    frames_per_fire: bpy.props.IntProperty(
+        name="Frames / Fire",
+        default=1, min=1, soft_max=60,
+        description="Fire one sweep every N frames. Between fires, "
+        "packets keep moving — lower firing rate without chopping motion")
+    hold_frames_start: bpy.props.IntProperty(
+        name="Hold Start",
+        default=0, min=0, soft_max=240,
+        description="Keep the starting config (no firing) for N frames "
+        "after frame 1. Camera rotation and packet motion still advance")
+    hold_frames_end: bpy.props.IntProperty(
+        name="Hold End",
+        default=0, min=0, soft_max=240,
+        description="Freeze the sim for the last N frames of the range "
+        "(camera rotation still advances)")
 
 
 class FLOWFIRE_OT_show_all(bpy.types.Operator):
@@ -574,8 +642,59 @@ class FLOWFIRE_OT_show_all(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class FLOWFIRE_OT_restart(bpy.types.Operator):
+    bl_idname = "flowfire.restart"
+    bl_label = "Restart Simulation"
+    bl_description = "Rebuild complex and re-initialize flow from panel settings"
+    bl_options = {"REGISTER"}
+
+    def execute(self, context):
+        try:
+            rebuild_simulation(_ns_from_props(context.scene.flowfire_props))
+        except Exception as e:
+            self.report({"ERROR"}, f"Rebuild failed: {e}")
+            return {"CANCELLED"}
+        context.scene.frame_current = 1
+        return {"FINISHED"}
+
+
+class FLOWFIRE_OT_step(bpy.types.Operator):
+    bl_idname = "flowfire.step"
+    bl_label = "Step"
+    bl_description = "Advance one frame (fires one sequential sweep)"
+    bl_options = {"REGISTER"}
+
+    def execute(self, context):
+        context.scene.frame_current += 1
+        return {"FINISHED"}
+
+
+class FLOWFIRE_OT_reset_camera(bpy.types.Operator):
+    bl_idname = "flowfire.reset_camera"
+    bl_label = "Reset Camera"
+    bl_description = ("Remove the current RenderCam and rebuild it from "
+                      "the panel's Elev/Azim/Dist values")
+    bl_options = {"REGISTER"}
+
+    def execute(self, context):
+        if sim_d is None:
+            self.report({"ERROR"}, "No simulation loaded")
+            return {"CANCELLED"}
+        for name in ("RenderCam", "CamTarget"):
+            o = bpy.data.objects.get(name)
+            if o:
+                data = o.data
+                bpy.data.objects.remove(o, do_unlink=True)
+                if data and data.users == 0 and isinstance(
+                        data, bpy.types.Camera):
+                    bpy.data.cameras.remove(data)
+        setup_render_scene(_ns_from_props(context.scene.flowfire_props),
+                           sim_d)
+        return {"FINISHED"}
+
+
 class FLOWFIRE_PT_LayerPanel(bpy.types.Panel):
-    bl_label = "Layer Visibility"
+    bl_label = "FlowFire"
     bl_idname = "FLOWFIRE_PT_layers"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
@@ -585,60 +704,239 @@ class FLOWFIRE_PT_LayerPanel(bpy.types.Panel):
         layout = self.layout
         props = context.scene.flowfire_props
 
-        row = layout.row(align=True)
+        # --- Simulation ---
+        box = layout.box()
+        box.label(text="Simulation", icon="PHYSICS")
+        box.prop(props, "init_mode")
+        row = box.row(align=True)
+        row.prop(props, "size")
+        row.prop(props, "initial_flow")
+        row = box.row(align=True)
+        row.prop(props, "seed")
+        row.prop(props, "prefire")
+        row = box.row(align=True)
+        row.prop(props, "frames_per_fire")
+        row = box.row(align=True)
+        row.prop(props, "shuffle", toggle=True)
+        row.prop(props, "single_step", toggle=True)
+        row.prop(props, "use_gpu", toggle=True)
+        row = box.row(align=True)
+        row.prop(props, "use_arrows", toggle=True)
+        row.prop(props, "use_flow_labels", toggle=True)
+        row.prop(props, "use_packet_only", toggle=True)
+        sub = box.row()
+        sub.enabled = props.init_mode in {"cubic", "Z2", "Z2tess"}
+        sub.prop(props, "hollow_face")
+        row = box.row(align=True)
+        row.operator("flowfire.restart", icon="FILE_REFRESH")
+        row.operator("flowfire.step", icon="FRAME_NEXT")
+
+        # --- View ---
+        box = layout.box()
+        box.label(text="View", icon="HIDE_OFF")
+        row = box.row(align=True)
         row.prop(props, "show_edges", toggle=True)
         row.prop(props, "show_faces", toggle=True)
-        layout.operator("flowfire.show_all")
-        layout.prop(props, "z_min", slider=True)
-        layout.prop(props, "z_max", slider=True)
-        layout.prop(props, "hidden_alpha", slider=True)
-
-        layout.separator()
+        box.operator("flowfire.show_all")
+        box.prop(props, "z_min", slider=True)
+        box.prop(props, "z_max", slider=True)
+        box.prop(props, "hidden_alpha", slider=True)
         if props.show_edges:
-            layout.prop(props, "show_arrows")
-            layout.prop(props, "show_flow_labels")
+            box.prop(props, "show_arrows")
+            box.prop(props, "show_flow_labels")
         if props.show_faces:
-            layout.label(text="Red = clockwise (F>0), Blue = counter-clockwise (F<0)")
+            box.label(text="Red (F>0) = counter-clockwise, "
+                      "Blue (F<0) = clockwise")
+
+        # --- Camera ---
+        box.separator()
+        box.label(text="Camera")
+        row = box.row(align=True)
+        row.prop(props, "camera_elev")
+        row.prop(props, "camera_azim")
+        box.prop(props, "camera_distance")
+        box.operator("flowfire.reset_camera", icon="OUTLINER_OB_CAMERA")
+        row = box.row(align=True)
+        row.prop(props, "rotate_camera", toggle=True)
+        sub = row.row()
+        sub.enabled = props.rotate_camera
+        sub.prop(props, "rotate_rate")
+
+        # --- Animation (applied on Restart) ---
+        box.separator()
+        box.label(text="Animation")
+        box.prop(props, "packet_speed")
+        row = box.row(align=True)
+        row.prop(props, "hold_frames_start")
+        row.prop(props, "hold_frames_end")
 
         if sim_unique_layers:
-            layout.label(text=f"Layers: {len(sim_unique_layers)} "
-                         f"(z = {sim_unique_layers[0]:.1f} .. {sim_unique_layers[-1]:.1f})")
+            layout.label(
+                text=f"Layers: {len(sim_unique_layers)} "
+                f"(z = {sim_unique_layers[0]:.1f} .. "
+                f"{sim_unique_layers[-1]:.1f})")
 
 
-def setup_render_scene(args, d):
-    """Set up camera, lighting, and render settings for paper-quality output."""
-    scene = bpy.context.scene
+_CLASSES = (FlowFireProperties, FLOWFIRE_OT_show_all,
+            FLOWFIRE_OT_restart, FLOWFIRE_OT_step,
+            FLOWFIRE_OT_reset_camera,
+            FLOWFIRE_PT_LayerPanel)
 
-    # Compute bounding box of the complex
+
+def _register_ui():
+    for cls in reversed(_CLASSES):
+        try:
+            bpy.utils.unregister_class(cls)
+        except Exception:
+            pass
+    for cls in _CLASSES:
+        bpy.utils.register_class(cls)
+    bpy.types.Scene.flowfire_props = bpy.props.PointerProperty(
+        type=FlowFireProperties)
+
+
+def _seed_props_from_args(args):
+    props = bpy.context.scene.flowfire_props
+    props.init_mode = args.init
+    props.size = args.size
+    props.initial_flow = args.initial
+    props.seed = args.seed if args.seed is not None else 42
+    props.shuffle = args.shuffle
+    props.single_step = args.single
+    props.prefire = args.prefire
+    props.hollow_face = args.hollow_face
+    props.use_arrows = args.arrows
+    props.use_packet_only = args.packet_only
+    props.use_gpu = args.gpu
+    props.use_flow_labels = args.flow_labels
+    # camera_elev: CLI default is None (auto). Pick sensibly for init_mode.
+    if args.camera_elev is None:
+        props.camera_elev = 75.0 if args.init in ("Z2", "Z2tess") else 30.0
+    else:
+        props.camera_elev = args.camera_elev
+    props.camera_azim = args.camera_azim
+    props.camera_distance = args.camera_distance
+    props.packet_speed = args.packet_speed
+    props.frames_per_fire = args.frames_per_fire
+
+
+def _ns_from_props(props):
+    base = _cli_args
+    return SimpleNamespace(
+        size=props.size, init=props.init_mode, initial=props.initial_flow,
+        shuffle=props.shuffle, seed=props.seed, gpu=props.use_gpu,
+        hollow_face=props.hollow_face, prefire=props.prefire,
+        single=props.single_step, arrows=props.use_arrows,
+        flow_labels=props.use_flow_labels,
+        packet_only=props.use_packet_only,
+        render_frame=None, render_video=False, output=None,
+        render_samples=base.render_samples if base else 128,
+        render_res=base.render_res if base else "1920x1080",
+        camera_elev=props.camera_elev,
+        camera_azim=props.camera_azim,
+        camera_distance=props.camera_distance,
+        packet_speed=props.packet_speed,
+        frames_per_fire=props.frames_per_fire,
+        transparent_bg=base.transparent_bg if base else False,
+    )
+
+
+def _compute_scene_framing(d):
+    """Return (center, extent, is_flat) for a complex dict."""
     all_pts = d["edge_verts"].reshape(-1, 3)
     bbox_min = all_pts.min(axis=0)
     bbox_max = all_pts.max(axis=0)
     center = (bbox_min + bbox_max) / 2
-    extent = np.linalg.norm(bbox_max - bbox_min)
+    extent = float(np.linalg.norm(bbox_max - bbox_min))
+    z_extent = float(bbox_max[2] - bbox_min[2])
+    return center, extent, z_extent < 0.5
 
-    # Camera placement via spherical coordinates
-    elev_rad = math.radians(args.camera_elev)
-    azim_rad = math.radians(args.camera_azim)
-    dist = extent * args.camera_distance
 
+def _place_camera(cam, center, extent, elev_deg, azim_deg,
+                  distance_mult, is_flat):
+    """Position + orient a camera via spherical (elev/azim) look-at.
+
+    Up reference is world +Y for flat scenes (keeps screen-up = world +Y
+    regardless of elev/azim) and world +Z for 3D scenes.
+    """
+    elev_rad = math.radians(elev_deg)
+    azim_rad = math.radians(azim_deg)
+    dist = extent * distance_mult
     cam_x = center[0] + dist * math.cos(elev_rad) * math.cos(azim_rad)
     cam_y = center[1] + dist * math.cos(elev_rad) * math.sin(azim_rad)
     cam_z = center[2] + dist * math.sin(elev_rad)
+    cam.location = (cam_x, cam_y, cam_z)
+
+    cam_loc = mathutils.Vector((cam_x, cam_y, cam_z))
+    target = mathutils.Vector(tuple(center))
+    forward = (target - cam_loc).normalized()
+    up_ref = (mathutils.Vector((0.0, 1.0, 0.0)) if is_flat
+              else mathutils.Vector((0.0, 0.0, 1.0)))
+    right = forward.cross(up_ref).normalized()
+    up = right.cross(forward).normalized()
+    rot_mat = mathutils.Matrix((
+        (right.x, up.x, -forward.x, 0.0),
+        (right.y, up.y, -forward.y, 0.0),
+        (right.z, up.z, -forward.z, 0.0),
+        (0.0,     0.0,  0.0,        1.0),
+    ))
+    cam.rotation_mode = "QUATERNION"
+    cam.rotation_quaternion = rot_mat.to_quaternion()
+
+
+def _rotate_camera_handler(scene):
+    """frame_change_pre handler: orbit RenderCam around scene center."""
+    props = getattr(scene, "flowfire_props", None)
+    if props is None or not props.rotate_camera:
+        return
+    if _cam_center is None or _cam_extent is None:
+        return
+    cam = bpy.data.objects.get("RenderCam")
+    if cam is None:
+        return
+    fps = max(1, int(scene.render.fps))
+    t = (scene.frame_current - scene.frame_start) / fps
+    azim = props.camera_azim + props.rotate_rate * t
+    _place_camera(cam, _cam_center, _cam_extent,
+                  props.camera_elev, azim, props.camera_distance,
+                  _cam_is_flat)
+
+
+def setup_render_scene(args, d):
+    """Set up camera, lighting, and render settings for paper-quality output.
+
+    On Restart the existing camera/lights/world/engine/resolution are kept
+    as-is (user tunes them in the GUI). Only the initial build runs this
+    function's body; subsequent calls short-circuit after refreshing the
+    scene-framing cache so the rotating camera + Reset Camera still have
+    the right bbox for the new complex.
+    """
+    global _cam_center, _cam_extent, _cam_is_flat
+    _cam_center, _cam_extent, _cam_is_flat = _compute_scene_framing(d)
+
+    scene = bpy.context.scene
+    if bpy.data.objects.get("RenderCam") is not None:
+        scene.camera = bpy.data.objects["RenderCam"]
+        return
+
+    # Essentially-flat complexes (Z2, Z2tess) look bad at 30° — resolve the
+    # default here so flat scenes go top-down while 3D scenes stay oblique.
+    if args.camera_elev is None:
+        elev_deg = 75.0 if _cam_is_flat else 30.0
+    else:
+        elev_deg = args.camera_elev
 
     cam_data = bpy.data.cameras.new("RenderCam")
     cam_data.lens = 50
     cam_obj = bpy.data.objects.new("RenderCam", cam_data)
     bpy.context.collection.objects.link(cam_obj)
-    cam_obj.location = (cam_x, cam_y, cam_z)
+    _place_camera(cam_obj, _cam_center, _cam_extent,
+                  elev_deg, args.camera_azim, args.camera_distance,
+                  _cam_is_flat)
 
-    # Point camera at center using Track To constraint
-    track = cam_obj.constraints.new(type="TRACK_TO")
     empty = bpy.data.objects.new("CamTarget", None)
-    empty.location = tuple(center)
+    empty.location = tuple(_cam_center)
     bpy.context.collection.objects.link(empty)
-    track.target = empty
-    track.track_axis = "TRACK_NEGATIVE_Z"
-    track.up_axis = "UP_Y"
     scene.camera = cam_obj
 
     # 3-point lighting
@@ -655,6 +953,8 @@ def setup_render_scene(args, d):
     # Scale light power by extent² (inverse-square compensation) and
     # light size ∝ extent (soft shadows grow with scene). Baseline values
     # are calibrated for extent ≈ 10 (cubic --size 5-6).
+    extent = _cam_extent
+    center = _cam_center
     ref_extent = 10.0
     power_scale = max((extent / ref_extent) ** 2, 0.25)
     size_scale = max(extent / ref_extent, 0.5)
@@ -718,7 +1018,12 @@ def setup_render_scene(args, d):
     # Background
     if args.transparent_bg:
         scene.render.film_transparent = True
-        scene.render.image_settings.color_mode = "RGBA"
+        # RGBA is only valid when file_format supports an alpha channel
+        # (PNG/OpenEXR etc.). FFMPEG/JPEG lock color_mode to RGB.
+        try:
+            scene.render.image_settings.color_mode = "RGBA"
+        except TypeError:
+            pass
     else:
         # Subtle vertical gradient backdrop (ray direction Z drives a
         # muted warm-grey → soft-white ramp). Reads as considered without
@@ -761,11 +1066,18 @@ def setup_render_scene(args, d):
             bpy.data.objects.remove(obj, do_unlink=True)
 
 
+def _default_output_path(ext):
+    d = Path.home() / "work"
+    d.mkdir(parents=True, exist_ok=True)
+    return d / f"render.{ext}"
+
+
 def render_single_frame(args):
     """Render one frame and exit."""
     scene = bpy.context.scene
     scene.frame_set(args.render_frame)
-    output = args.output or "render.png"
+    output = args.output or str(_default_output_path("png"))
+    Path(output).parent.mkdir(parents=True, exist_ok=True)
     scene.render.filepath = str(Path(output).resolve())
     scene.render.image_settings.file_format = "PNG"
     print(f"  Rendering frame {args.render_frame} -> {output}")
@@ -776,8 +1088,12 @@ def render_single_frame(args):
 def render_animation(args):
     """Render all frames as MP4 and exit."""
     scene = bpy.context.scene
-    output = args.output or "render.mp4"
+    output = args.output or str(_default_output_path("mp4"))
+    Path(output).parent.mkdir(parents=True, exist_ok=True)
     scene.render.filepath = str(Path(output).resolve())
+    # Blender 5.x: media_type must be set to VIDEO before FFMPEG is a legal file_format
+    if "media_type" in scene.render.image_settings.bl_rna.properties:
+        scene.render.image_settings.media_type = "VIDEO"
     scene.render.image_settings.file_format = "FFMPEG"
     scene.render.ffmpeg.format = "MPEG4"
     scene.render.ffmpeg.codec = "H264"
@@ -788,22 +1104,63 @@ def render_animation(args):
     print(f"  Done: {output}")
 
 
-def main():
+def _tear_down_simulation():
+    """Remove all per-simulation objects, handlers, and cached state.
+
+    Ordering: handlers first (so no frame-change touches a freed mesh mid-
+    teardown), then objects + their data blocks, then materials/node-groups,
+    then module-level references.
+    """
+    global _update_mesh_fn, sim_label_objs
+    global _edge_obj, _face_obj, _glyph_obj
+
+    bpy.app.handlers.frame_change_pre.clear()
+
+    for o in [o for o in bpy.data.objects if o.name.startswith("flow_label_")]:
+        data = o.data
+        bpy.data.objects.remove(o, do_unlink=True)
+        if data and data.users == 0:
+            bpy.data.curves.remove(data)
+
+    # Keep camera, lights, CamTarget, world, and render settings across
+    # restarts — the user tunes these in the GUI and expects them preserved.
+    for name in ("out", "out_faces", "out_faces_glyphs", "_curl_template"):
+        o = bpy.data.objects.get(name)
+        if not o:
+            continue
+        data = o.data
+        bpy.data.objects.remove(o, do_unlink=True)
+        if data and data.users == 0:
+            if isinstance(data, bpy.types.Mesh):
+                bpy.data.meshes.remove(data)
+
+    for name in ("FlowFireMat", "FlowFireFaceMat",
+                 "FlowFireGlyphMat", "FlowLabelMat"):
+        m = bpy.data.materials.get(name)
+        if m:
+            bpy.data.materials.remove(m)
+    for name in ("FlowFireGeoNodes", "FlowFireGlyphGeoNodes"):
+        ng = bpy.data.node_groups.get(name)
+        if ng:
+            bpy.data.node_groups.remove(ng)
+    old_coll = bpy.data.collections.get("FlowLabels")
+    if old_coll:
+        bpy.data.collections.remove(old_coll)
+
+    sim_label_objs = []
+    _edge_obj = _face_obj = _glyph_obj = _update_mesh_fn = None
+
+
+def rebuild_simulation(args):
     global sim_d, sim_config, sim_unique_layers, sim_layer_indices
     global sim_B, sim_face_centroids, sim_face_z_layers, sim_face_euler
     global _edge_obj, _face_obj, _glyph_obj, _update_mesh_fn
 
-    args = parse_args()
+    _tear_down_simulation()
+
     rng = np.random.default_rng(args.seed) if args.shuffle else None
     print(f"\nArgs: size={args.size}, init={args.init}, initial={args.initial}, "
           f"shuffle={args.shuffle}, seed={args.seed}")
-
-    # Register UI classes
-    bpy.utils.register_class(FlowFireProperties)
-    bpy.utils.register_class(FLOWFIRE_OT_show_all)
-    bpy.utils.register_class(FLOWFIRE_PT_LayerPanel)
-    bpy.types.Scene.flowfire_props = bpy.props.PointerProperty(
-        type=FlowFireProperties)
 
     # Build complex
     print("Building complex...")
@@ -906,14 +1263,22 @@ def main():
     attr_flow.attribute_type = "GEOMETRY"
     attr_flow.location = (-1400, -400)
 
-    # Frame-driven time (monotonic; per-frame step 0.05)
+    # Scene-time driver (seconds). Using frame/fps makes packet speed
+    # FPS-independent: at any render FPS, the packet still crosses
+    # `packet_speed` edges per wall-clock second.
     time_val = nodes.new("ShaderNodeValue")
     time_val.location = (-1400, -600)
     time_val.outputs[0].default_value = 0.0
     try:
         drv = time_val.outputs[0].driver_add("default_value").driver
         drv.type = "SCRIPTED"
-        drv.expression = "frame * 0.05"
+        var = drv.variables.new()
+        var.name = "fps"
+        var.type = "SINGLE_PROP"
+        var.targets[0].id_type = "SCENE"
+        var.targets[0].id = bpy.context.scene
+        var.targets[0].data_path = "render.fps"
+        drv.expression = "frame / fps"
     except Exception as e:
         print(f"  Could not attach #frame driver to shader time: {e}")
 
@@ -944,12 +1309,12 @@ def main():
     links.new(sign_flow.outputs[0], signed_mag.inputs[0])
     links.new(min_flow.outputs[0], signed_mag.inputs[1])
 
-    # Speed is direction-only (sign of flow); magnitude is not used so
-    # all active edges travel at the same rate regardless of |flow|.
-    # speed_factor 1.5 with time_val=frame*0.05 → crosses edge in ~13 frames.
+    # Speed is direction-only (sign of flow); magnitude unused so all
+    # active edges travel at the same rate regardless of |flow|.
+    # Units: edges/second (time_val is in seconds via the fps driver).
     speed = nodes.new("ShaderNodeMath")
     speed.operation = "MULTIPLY"
-    speed.inputs[1].default_value = 1.5
+    speed.inputs[1].default_value = args.packet_speed
     speed.location = (-600, -400)
     links.new(sign_flow.outputs[0], speed.inputs[0])
 
@@ -1235,22 +1600,6 @@ def main():
     mod = obj.modifiers.new(name="FlowFireGeoNodes", type="NODES")
     mod.node_group = node_group
 
-    for _oname in ("out_faces", "out_faces_glyphs", "_curl_template"):
-        _old = bpy.data.objects.get(_oname)
-        if _old is not None:
-            _olddata = _old.data
-            bpy.data.objects.remove(_old, do_unlink=True)
-            if _olddata and _olddata.users == 0:
-                if isinstance(_olddata, bpy.types.Mesh):
-                    bpy.data.meshes.remove(_olddata)
-    for _mname in ("FlowFireFaceMat", "FlowFireGlyphMat"):
-        _oldm = bpy.data.materials.get(_mname)
-        if _oldm is not None:
-            bpy.data.materials.remove(_oldm)
-    _oldng = bpy.data.node_groups.get("FlowFireGlyphGeoNodes")
-    if _oldng is not None:
-        bpy.data.node_groups.remove(_oldng)
-
     sim_B = build_boundary_matrix(d)
     face_flat, face_polys, face_centroids_arr, face_normals, face_z, face_euler = build_face_mesh_data(d)
     glyph_points = face_centroids_arr + 0.012 * face_normals
@@ -1384,13 +1733,10 @@ def main():
     g_mod = glyph_obj.modifiers.new(name="FlowFireGlyphs", type="NODES")
     g_mod.node_group = glyph_ng
 
-    face_attr_ref = face_mesh.color_attributes["face_color"].data
-    glyph_fc_ref = glyph_mesh.color_attributes["face_color"].data
-    glyph_scale_ref = glyph_mesh.attributes["curl_scale"].data
-
-    # Store refs for animation
+    # Attribute `.data` bpy_prop_collections are re-acquired inside
+    # update_mesh() on every call, because Mesh.update() can re-seat
+    # the underlying storage and silently invalidate cached views.
     mesh_ref = mesh
-    attr_ref = mesh.color_attributes["edge_color"].data
 
     order = np.arange(num_edges, dtype=np.int32)
 
@@ -1411,28 +1757,13 @@ def main():
         arrow_dir_buf = np.zeros((num_edges, 3), dtype=np.float32)
         arrow_scale_buf = np.zeros(num_edges, dtype=np.float32)
 
-    # Flow-value labels: pool of FONT curve objects, one per edge
+    # Flow-value labels: pool of FONT curve objects, one per edge.
+    # Labels are linked directly into scene.collection (Blender 5.1's outliner
+    # segfaults when a sub-collection holds hundreds of objects — see
+    # BKE_view_layer_base_find crash). Prior-run cleanup is in
+    # _tear_down_simulation().
     use_flow_labels = args.flow_labels
     global sim_label_objs
-
-    # Clean up labels from a previous run. Blender 5.1's outliner
-    # segfaults when a sub-collection holds many hundreds of objects
-    # (BKE_view_layer_base_find crash), so we link labels directly into
-    # scene.collection and scan by name prefix for cleanup. We still
-    # tear down any lingering "FlowLabels" collection from earlier runs.
-    for old_obj in [o for o in bpy.data.objects
-                    if o.name.startswith("flow_label_")]:
-        old_data = old_obj.data
-        bpy.data.objects.remove(old_obj, do_unlink=True)
-        if old_data and old_data.users == 0:
-            bpy.data.curves.remove(old_data)
-    old_coll = bpy.data.collections.get("FlowLabels")
-    if old_coll:
-        bpy.data.collections.remove(old_coll)
-    old_mat = bpy.data.materials.get("FlowLabelMat")
-    if old_mat:
-        bpy.data.materials.remove(old_mat)
-    sim_label_objs = []
 
     if use_flow_labels:
         label_mat = bpy.data.materials.new(name="FlowLabelMat")
@@ -1465,86 +1796,19 @@ def main():
 
         bpy.context.view_layer.update()
 
-    # Viewport billboarding: reorient labels each redraw toward the
-    # current 3D view (not scene.camera, which may not be the view).
-    global _label_draw_handle
-    if _label_draw_handle is not None:
-        try:
-            bpy.types.SpaceView3D.draw_handler_remove(
-                _label_draw_handle, "WINDOW")
-        except Exception:
-            pass
-        _label_draw_handle = None
-
-    def _viewport_update_labels():
-        try:
-            rv3d = bpy.context.region_data
-            if rv3d is None:
-                return
-            # In camera view, update_mesh already oriented toward scene.camera
-            if rv3d.view_perspective == "CAMERA":
-                return
-            props = bpy.context.scene.flowfire_props
-            if not props.show_flow_labels:
-                return
-            view_rot = rv3d.view_rotation
-            view_dir = view_rot @ mathutils.Vector((0.0, 0.0, 1.0))  # toward viewer
-            ox, oy, oz = view_dir.x * 0.08, view_dir.y * 0.08, view_dir.z * 0.08
-            for i, lbl in enumerate(sim_label_objs):
-                if lbl.hide_viewport:
-                    continue
-                lbl.rotation_mode = "QUATERNION"
-                lbl.rotation_quaternion = view_rot
-                mid = edge_midpoints[i]
-                lbl.location = (
-                    float(mid[0]) + ox,
-                    float(mid[1]) + oy,
-                    float(mid[2]) + oz,
-                )
-        except Exception as e:
-            print(f"flow-label viewport update error: {e}")
-
-    if use_flow_labels:
-        _label_draw_handle = bpy.types.SpaceView3D.draw_handler_add(
-            _viewport_update_labels, (), "WINDOW", "POST_PIXEL")
-
-    # Render-time label orientation: face scene.camera. Fires before each
-    # rendered frame so animation renders stay correctly billboarded.
-    def _render_pre_orient_labels(scene, _depsgraph=None):
-        if not use_flow_labels:
-            return
-        cam = scene.camera
-        if cam is None:
-            return
-        cam_loc = np.array(cam.location, dtype=np.float32)
-        for i, lbl in enumerate(sim_label_objs):
-            if lbl.hide_render:
-                continue
-            mid = edge_midpoints[i]
-            to_cam = cam_loc - mid
-            n = float(np.linalg.norm(to_cam)) + 1e-8
-            unit = to_cam / n
-            lbl.location = (
-                float(mid[0] + 0.08 * unit[0]),
-                float(mid[1] + 0.08 * unit[1]),
-                float(mid[2] + 0.08 * unit[2]),
-            )
-            lbl.rotation_mode = "QUATERNION"
-            lbl.rotation_quaternion = mathutils.Vector(
-                (float(to_cam[0]), float(to_cam[1]), float(to_cam[2]))
-            ).to_track_quat("Z", "Y")
-
-    if use_flow_labels:
-        # Remove any stale handlers from prior runs
-        for h in list(bpy.app.handlers.render_pre):
-            if getattr(h, "__name__", "") == "_render_pre_orient_labels":
-                bpy.app.handlers.render_pre.remove(h)
-        bpy.app.handlers.render_pre.append(_render_pre_orient_labels)
-
     def update_mesh():
         props = bpy.context.scene.flowfire_props
         z_lo, z_hi = props.z_min, props.z_max
         h_alpha = props.hidden_alpha
+
+        # Re-acquire attribute views each call: cached bpy_prop_collection
+        # views can silently go stale across frames and report len=0, which
+        # manifests as "foreach_set: sequence length mismatch given N,
+        # needed 0" partway through an animation render.
+        face_attr = face_mesh.color_attributes["face_color"].data
+        glyph_fc = glyph_mesh.color_attributes["face_color"].data
+        glyph_sc = glyph_mesh.attributes["curl_scale"].data
+        edge_attr = mesh.color_attributes["edge_color"].data
 
         if props.show_faces:
             F = compute_face_circulation(sim_B, sim_config)
@@ -1557,7 +1821,7 @@ def main():
                 base = fi * face_face_size
                 for k in range(face_face_size):
                     face_rgba[base + k, :] = c
-            face_attr_ref.foreach_set("color", face_rgba.ravel())
+            face_attr.foreach_set("color", face_rgba.ravel())
 
             glyph_scale_buf[:] = 0.0
             glyph_rgba[:] = 0.0
@@ -1578,10 +1842,10 @@ def main():
                 glyph_rgba[fi, 1] = gc[1]
                 glyph_rgba[fi, 2] = gc[2]
                 glyph_rgba[fi, 3] = gc[3] * vis
-            glyph_scale_ref.foreach_set("vector", glyph_scale_buf.ravel())
-            glyph_fc_ref.foreach_set("color", glyph_rgba.ravel())
-            face_mesh.update()
-            glyph_mesh.update()
+            glyph_sc.foreach_set("vector", glyph_scale_buf.ravel())
+            glyph_fc.foreach_set("color", glyph_rgba.ravel())
+            face_mesh.update_tag()
+            glyph_mesh.update_tag()
 
         if props.show_edges:
             for i in range(num_edges):
@@ -1590,7 +1854,7 @@ def main():
                     c = (c[0], c[1], c[2], h_alpha)
                 rgba[i * 2, :] = c
                 rgba[i * 2 + 1, :] = c
-            attr_ref.foreach_set("color", rgba.ravel())
+            edge_attr.foreach_set("color", rgba.ravel())
 
             if use_arrows and props.show_arrows:
                 flows = sim_config.astype(np.float32)
@@ -1620,6 +1884,9 @@ def main():
 
             if use_flow_labels:
                 if props.show_flow_labels:
+                    scene_cam = bpy.context.scene.camera
+                    cam_loc = (np.array(scene_cam.location, dtype=np.float32)
+                               if scene_cam is not None else None)
                     for i in range(num_edges):
                         v = int(sim_config[i])
                         lbl = sim_label_objs[i]
@@ -1633,6 +1900,21 @@ def main():
                             lbl.hide_viewport = False
                             lbl.hide_render = False
                         lbl.data.body = str(v)
+                        if cam_loc is not None:
+                            mid = edge_midpoints[i]
+                            to_cam = cam_loc - mid
+                            n = float(np.linalg.norm(to_cam)) + 1e-8
+                            unit = to_cam / n
+                            lbl.location = (
+                                float(mid[0] + 0.08 * unit[0]),
+                                float(mid[1] + 0.08 * unit[1]),
+                                float(mid[2] + 0.08 * unit[2]),
+                            )
+                            lbl.rotation_mode = "QUATERNION"
+                            lbl.rotation_quaternion = mathutils.Vector(
+                                (float(to_cam[0]), float(to_cam[1]),
+                                 float(to_cam[2]))
+                            ).to_track_quat("Z", "Y")
                 else:
                     for lbl in sim_label_objs:
                         if not lbl.hide_viewport:
@@ -1642,7 +1924,7 @@ def main():
             mesh_ref.attributes["flow_signed"].data.foreach_set(
                 "value", sim_config.astype(np.float32))
 
-            mesh_ref.update()
+            mesh_ref.update_tag()
 
     # State for --single mode: position in current sweep
     sweep_pos = [0]
@@ -1686,6 +1968,34 @@ def main():
             # Frame 2: clear the prefired flag so subsequent rewinds reset
             prefired = False
 
+        # Hold windows: freeze the sim at the start / end of the range so
+        # the viewer can see the initial and final configurations without
+        # firing. Camera rotation and packet motion keep advancing because
+        # this gate runs before the fire logic only.
+        try:
+            hold_s = max(0, int(scene.flowfire_props.hold_frames_start))
+            hold_e = max(0, int(scene.flowfire_props.hold_frames_end))
+        except (AttributeError, ReferenceError):
+            hold_s = hold_e = 0
+        if scene.frame_current <= 1 + hold_s:
+            update_mesh()
+            return
+        if scene.frame_current > scene.frame_end - hold_e:
+            update_mesh()
+            return
+
+        # Fire every Nth frame (counting from frame 2). Read from panel
+        # props live so the knob takes effect without a Restart. On non-fire
+        # frames packets still animate — the shader time driver reads
+        # frame/fps independently of sim_config.
+        try:
+            fpf = max(1, int(scene.flowfire_props.frames_per_fire))
+        except (AttributeError, ReferenceError):
+            fpf = max(1, int(args.frames_per_fire))
+        if (scene.frame_current - 2) % fpf != 0:
+            update_mesh()
+            return
+
         if args.single:
             ei = fire_single_edge()
             if ei >= 0:
@@ -1714,6 +2024,7 @@ def main():
 
     bpy.app.handlers.frame_change_pre.clear()
     bpy.app.handlers.frame_change_pre.append(flow_fire)
+    bpy.app.handlers.frame_change_pre.append(_rotate_camera_handler)
 
     _update_mesh_fn = update_mesh
 
@@ -1724,7 +2035,15 @@ def main():
     update_mesh()
     _apply_view_mode()
 
-    # Execute render and exit if requested
+
+def main():
+    global _cli_args
+    args = parse_args()
+    _cli_args = args
+    _register_ui()
+    _seed_props_from_args(args)
+    rebuild_simulation(args)
+
     if args.render_frame is not None:
         render_single_frame(args)
         return
@@ -1732,7 +2051,7 @@ def main():
         render_animation(args)
         return
 
-    print("\033[32mReady.\033[0m Use Sidebar > FlowFire tab for layer visibility.")
+    print("\033[32mReady.\033[0m Use Sidebar > FlowFire tab.")
 
 
 if __name__ == "__main__":
