@@ -135,8 +135,8 @@ codesign --force --sign - "${MACOS_DIR}/${APP_NAME}"
 codesign --force --deep --sign - "${APP_DIR}"
 
 # ── 8. Zip for distribution ──────────────────────────────────────────────────
-echo "Zipping ${APP_DIR}..."
-ditto -c -k --sequesterRsrc --keepParent "$APP_DIR" "Flow.zip"
+echo "Creating Flow.dmg..."
+hdiutil create -volname "Flow" -srcfolder "$APP_DIR" -ov -format UDZO "Flow.dmg"
 
 echo ""
 echo "Done! Flow.zip is ready for distribution."
