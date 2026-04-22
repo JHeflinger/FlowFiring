@@ -107,5 +107,5 @@ if [ $? -ne 0 ]; then
 fi
 
 echo "otool output"
-otool -L build/bin.exe | grep -i vulkan
+otool -L build/bin.exe
 echo "otool output done"
