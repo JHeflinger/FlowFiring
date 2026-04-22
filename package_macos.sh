@@ -130,11 +130,13 @@ EOF
 #     # <key>CFBundleIconFile</key><string>AppIcon</string>
 # fi
 
+codesign --force --sign - "${MACOS_DIR}/${APP_NAME}_bin"
+codesign --force --sign - "${MACOS_DIR}/${APP_NAME}"
 codesign --force --deep --sign - "${APP_DIR}"
 
 # ── 8. Zip for distribution ──────────────────────────────────────────────────
 echo "Zipping ${APP_DIR}..."
-zip -r --symlinks "Flow.zip" "$APP_DIR"
+ditto -c -k --sequesterRsrc --keepParent "$APP_DIR" "Flow.zip"
 
 echo ""
 echo "Done! Flow.zip is ready for distribution."
