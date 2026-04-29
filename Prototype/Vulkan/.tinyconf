@@ -46,4 +46,3 @@ MACOS INCLUDE /opt/homebrew/include
 MACOS LIB /opt/homebrew/lib
 SOURCE vendor/EasyC/include
 FLAG audit
-FLAG debug

@@ -39,7 +39,7 @@ void InitializeInput() {
 
     g_input_map.keynames[IK_DEV] = "D";
     g_input_map.keynames[IK_PAN_CAMERA] = "SPCBAR";
-    g_input_map.keynames[IK_RESET_CAMERA] = "~";
+    g_input_map.keynames[IK_RESET_CAMERA] = "`";
     g_input_map.keynames[IK_FIT_CAMERA] = "F";
     g_input_map.keynames[IK_TOGGLE_HINTS] = "H";
     g_input_map.keynames[IK_L_OVERRIDE] = "L";

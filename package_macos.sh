@@ -130,19 +130,15 @@ EOF
 #     # <key>CFBundleIconFile</key><string>AppIcon</string>
 # fi
 
-codesign --force --sign - "${MACOS_DIR}/${APP_NAME}_bin"
-codesign --force --sign - "${MACOS_DIR}/${APP_NAME}"
-codesign --force --deep --sign - "${APP_DIR}"
-
 # ── 8. Zip for distribution ──────────────────────────────────────────────────
-echo "Creating Flow.dmg..."
-hdiutil create -volname "Flow" -srcfolder "$APP_DIR" -ov -format UDZO "Flow.dmg"
+echo "Zipping ${APP_DIR}..."
+zip -r --symlinks "Prism.zip" "$APP_DIR"
 
 echo ""
-echo "Done! Flow.zip is ready for distribution."
+echo "Done! Prism.zip is ready for distribution."
 echo ""
 echo "To test locally:"
-echo "  unzip Flow.zip && open Flow.app"
+echo "  unzip Prism.zip && open Prism.app"
 echo ""
 echo "NOTE: On first launch, Gatekeeper will block the app because it is not"
 echo "code-signed. Users can bypass this by right-clicking the .app and"

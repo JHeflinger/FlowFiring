@@ -48,15 +48,15 @@ int add_toh(size_t x, size_t y, size_t w, size_t h) {
     UIMoveCursor(xpos, 0);
     UIDrawText("w");
     UIMoveCursor(xpos + 15, -20);
-    UIDragUInt(&g_toh_w, 0, 100, 1, 100);
+    UIDragUInt(&g_toh_w, 0, 50, 1, 100);
     UIMoveCursor(xpos + 125, -20);
     UIDrawText("h");
     UIMoveCursor(xpos + 140, -20);
-    UIDragUInt(&g_toh_h, 0, 100, 1, 100);
+    UIDragUInt(&g_toh_h, 0, 50, 1, 100);
     UIMoveCursor(xpos + 250, -20);
     UIDrawText("l");
     UIMoveCursor(xpos + 265, -20);
-    UIDragUInt(&g_toh_l, 0, 100, 1, 100);
+    UIDragUInt(&g_toh_l, 0, 50, 1, 100);
 
     UISetCursor(xpos + (width / 2) - (button_width / 2), ypos + height - 70);
     if (UIButton("Submit", button_width)) {

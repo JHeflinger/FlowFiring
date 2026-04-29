@@ -37,7 +37,6 @@ Fix Notes:
 - So, you completely forgot to use the fact that a face is a hole
 - make a serial version and randomize the group ordering
 
-
 1. hover to se value - now
 2. filter by value - now
 5. checker for stable config - later
@@ -50,8 +49,6 @@ Fix Notes:
 13. single fire - later
 15. select edges from edge view - now
 16. better cross section control - now
-
-calc degree
 
 1. get working on mac
 2. make installer
