@@ -132,13 +132,13 @@ EOF
 
 # ── 8. Zip for distribution ──────────────────────────────────────────────────
 echo "Zipping ${APP_DIR}..."
-zip -r --symlinks "Prism.zip" "$APP_DIR"
+zip -r --symlinks "Flow.zip" "$APP_DIR"
 
 echo ""
-echo "Done! Prism.zip is ready for distribution."
+echo "Done! Flow.zip is ready for distribution."
 echo ""
 echo "To test locally:"
-echo "  unzip Prism.zip && open Prism.app"
+echo "  unzip Flow.zip && open Flow.app"
 echo ""
 echo "NOTE: On first launch, Gatekeeper will block the app because it is not"
 echo "code-signed. Users can bypass this by right-clicking the .app and"
