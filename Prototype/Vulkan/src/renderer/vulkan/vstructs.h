@@ -49,6 +49,7 @@ typedef struct {
 	alignas(4) uint32_t image_height;
 	alignas(4) uint32_t single_selected_tid;
 	alignas(4) uint32_t single_selected_vid;
+    alignas(4) uint32_t single_selected_eid;
     alignas(4) uint32_t single_selected_edge_v1;
     alignas(4) uint32_t single_selected_edge_v2;
     alignas(4) uint32_t mode;

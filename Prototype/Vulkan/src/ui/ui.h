@@ -84,6 +84,8 @@ BOOL UIWasJustUsed();
 
 void UIDrawText(const char* text, ...);
 
+void UIDrawWarning(const char* text, ...);
+
 void UIDrawSubtleText(const char* text, ...);
 
 BOOL UIDragFloat_(PersistantUIData* data, float* value, float min, float max, float speed, size_t w);

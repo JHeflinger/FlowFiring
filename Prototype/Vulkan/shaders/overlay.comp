@@ -36,6 +36,7 @@ layout(binding = 2) uniform OverlayUniformBufferObject {
 	uint image_height;
 	uint single_selected_tid;
     uint single_selected_vid;
+    uint single_selected_eid;
     uint single_selected_edge_v1;
     uint single_selected_edge_v2;
     uint mode;
@@ -223,6 +224,37 @@ void highlight_triangle(uint htid) {
     }
 }
 
+void highlight_rendered_edge(uint htid) {
+	int rx = int(gl_GlobalInvocationID.x%o_ubo.image_width);
+    int ry = int(gl_GlobalInvocationID.x/o_ubo.image_width);
+    if (htid != -1 && raygenIn[gl_GlobalInvocationID.x].tid == htid) {
+        int radius = 2;
+		int minx = 0;
+		int miny = 0;
+		int maxx = rx;
+		int maxy = ry;
+		if (rx > radius) minx = rx - radius;
+		if (ry > radius) miny = ry - radius;
+		if (maxx + radius < o_ubo.image_width) maxx += radius;
+		if (maxy + radius < o_ubo.image_height) maxy += radius;
+		bool border = false;
+		for (int x = minx; x < maxx; x++) {
+			for (int y = miny; y < maxy; y++) {
+				RayGenerator rg = raygenIn[y*o_ubo.image_width + x];
+				if (rg.tid != htid) {
+					border = true;
+				}
+			}
+		}
+		if (border) {
+			imageStore(outputImage, ivec2(rx, ry), highlight_color);
+		} else {
+			vec4 oldc = imageLoad(outputImage, ivec2(rx, ry));
+			imageStore(outputImage, ivec2(rx, ry), mix(oldc, highlight_color, mixfactor));
+		}
+    }
+}
+
 void highlight_vertex(uint hvid, vec2 vpos) {
     if (hvid != -1) {
 	    int rx = int(gl_GlobalInvocationID.x%o_ubo.image_width);
@@ -359,12 +391,18 @@ void main() {
         highlight_triangle(hovered_tid);
     else if (o_ubo.mode == VERTEX_SELECT)
         highlight_vertex(hovered_tid, vertex_position);
-    else if (o_ubo.mode == EDGE_SELECT)
+    else if (o_ubo.mode == EDGE_SELECT && ubo.geomode == 0)
         highlight_edge(hovered_edge_v1, hovered_edge_v2, false);
-	if (o_ubo.mode != TRIANGLE_SELECT || hovered_tid != o_ubo.single_selected_tid)
-		highlight_triangle(o_ubo.single_selected_tid);
-	if (o_ubo.mode != VERTEX_SELECT || hovered_tid != o_ubo.single_selected_vid)
-		highlight_vertex(o_ubo.single_selected_vid, selected_vertex_position);
-    if (o_ubo.mode != EDGE_SELECT || (hovered_edge_v1 != o_ubo.single_selected_edge_v1 || hovered_edge_v2 != o_ubo.single_selected_edge_v2))
-        highlight_edge(o_ubo.single_selected_edge_v1, o_ubo.single_selected_edge_v2, true);
+    else if (o_ubo.mode == EDGE_SELECT)
+        highlight_rendered_edge(hovered_tid);
+    if (ubo.geomode == 0) {
+	    if (o_ubo.mode != TRIANGLE_SELECT || hovered_tid != o_ubo.single_selected_tid)
+    		highlight_triangle(o_ubo.single_selected_tid);
+    	if (o_ubo.mode != VERTEX_SELECT || hovered_tid != o_ubo.single_selected_vid)
+    		highlight_vertex(o_ubo.single_selected_vid, selected_vertex_position);
+        if (o_ubo.mode != EDGE_SELECT || (hovered_edge_v1 != o_ubo.single_selected_edge_v1 || hovered_edge_v2 != o_ubo.single_selected_edge_v2))
+            highlight_edge(o_ubo.single_selected_edge_v1, o_ubo.single_selected_edge_v2, true);
+    } else if (o_ubo.single_selected_eid != -1 && (o_ubo.mode != EDGE_SELECT || hovered_tid != o_ubo.single_selected_eid)) {
+        highlight_rendered_edge(o_ubo.single_selected_eid);
+    }
 }

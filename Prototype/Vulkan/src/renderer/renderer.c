@@ -16,6 +16,7 @@ Vector2 g_override_resolution = { 0 };
 float g_rft = 0.0f;
 uint32_t g_prevmode = 0;
 Vector3 g_toh_dims = { 0 };
+char g_sim_name[1024] = "ILoveFlowFiring";
 
 PipelineFlags GetPipelineFlags() {
     return g_renderer.config.flags;
@@ -673,7 +674,7 @@ void RestartSimulation() {
     UpdateVertices();
 }
 
-void SaveSimulation() {
+void SaveSimulationToFile(const char* path) {
     SaveConfig conf = (SaveConfig){
         g_renderer.config,
         (uint32_t)g_toh_dims.x,
@@ -699,7 +700,9 @@ void SaveSimulation() {
     memcpy(writebuffer, &conf, sizeof(SaveConfig));
     memcpy(writebuffer + sizeof(SaveConfig), ew.data, ew.size * sizeof(EdgeWrite));
     memcpy(writebuffer + sizeof(SaveConfig) + (ew.size * sizeof(EdgeWrite)), fw.data, fw.size * sizeof(FaceWrite));
-    FILE* file = fopen(".ffsession", "wb");
+    char nbuf[1024];
+    sprintf(nbuf, "%s.ffsession", path);
+    FILE* file = fopen(nbuf, "wb");
     if (!file || fwrite(writebuffer, 1, writesize, file) != writesize) {
         fclose(file);
         EZ_ERROR("Unable to write to a file for session saving");
@@ -710,8 +713,10 @@ void SaveSimulation() {
     ARRLIST_FaceWrite_clear(&fw);
 }
 
-BOOL LoadSimulation() {
-    FILE* file = fopen(".ffsession", "rb");
+BOOL LoadSimulationFromFile(const char* path) {
+    char nbuf[1024];
+    sprintf(nbuf, "%s.ffsession", path);
+    FILE* file = fopen(nbuf, "rb");
     SaveConfig conf = { 0 };
     if (!file) return FALSE;
     if (fread(&conf, sizeof(SaveConfig), 1, file) != 1) {
@@ -739,6 +744,7 @@ BOOL LoadSimulation() {
             return FALSE;
         }
     }
+    ClearSimulation();
     SubmitTOH(conf.w, conf.l, conf.h);
     for (size_t i = 0; i < conf.edgewrites; i++)
         EdgeReference(EdgePrimed((Edge){ ew[i].a, ew[i].b }))->flow = ew[i].flow;
@@ -749,6 +755,14 @@ BOOL LoadSimulation() {
     if (ew) EZ_FREE(ew);
     if (fw) EZ_FREE(fw);
     return TRUE;
+}
+
+void SaveSimulation() {
+    SaveSimulationToFile("");
+}
+
+BOOL LoadSimulation() {
+    return LoadSimulationFromFile("");
 }
 
 void ClearSimulation() {

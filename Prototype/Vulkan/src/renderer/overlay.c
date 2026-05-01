@@ -3,6 +3,7 @@
 #include "renderer/renderer.h"
 #include <easylogger.h>
 
+uint32_t g_selected_edge_id = (uint32_t)-1;
 Renderer* g_overlay_renderer_ref = NULL;
 Rectangle g_viewport_dims = { 0 };
 OverlaySSBO g_exposed_overlay_ssbo = (OverlaySSBO){ (TriangleID)-1, (VertexID)-1, (VertexID)-1, { 0, 0 }, { 0, 0 } };
@@ -61,6 +62,7 @@ OverlaySSBO* ExposedOverlaySSBO() {
 }
 
 void SetSelectedTriangle(TriangleID tid) {
+    g_selected_edge_id = (uint32_t)-1;
     g_single_selected_triangle = tid;
 }
 
@@ -78,6 +80,7 @@ VertexID HoveredVertex() {
 }
 
 void SetSelectedVertex(VertexID vid) {
+    g_selected_edge_id = (uint32_t)-1;
     g_single_selected_vertex = vid;
 }
 
@@ -91,10 +94,24 @@ Edge HoveredEdge() {
     return (Edge){(VertexID)-1, (VertexID)-1};
 }
 
+uint32_t HoveredEdgeID() {
+    if (RenderConfig()->geomode == 1) return g_exposed_overlay_ssbo.hovered_tid;
+    return (uint32_t)-1;
+}
+
 void SetSelectedEdge(Edge edge) {
+    g_selected_edge_id = (uint32_t)-1;
     g_single_selected_edge = EdgePrimed(edge);
 }
 
 Edge GetSelectedEdge() {
     return g_single_selected_edge;
+}
+
+void SetSelectedEdgeID(uint32_t index) {
+    g_selected_edge_id = index;
+}
+
+uint32_t GetSelectedEdgeID() {
+    return g_selected_edge_id;
 }

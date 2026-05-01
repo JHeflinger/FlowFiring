@@ -23,6 +23,20 @@ struct Triangle {
     uint c;
 };
 
+struct Edge {
+    uint a;
+    uint b;
+    uint f1e1;
+    uint f1e2;
+    uint f2e1;
+    uint f2e2;
+    uint f3e1;
+    uint f3e2;
+    uint f4e1;
+    uint f4e2;
+    int flow;
+};
+
 layout(binding = 0) buffer RayGeneratorSSBOIn {
    RayGenerator raygenIn[ ];
 };
@@ -50,6 +64,7 @@ layout(binding = 4) uniform OverlayUniformBufferObject {
 	uint image_height;
 	uint single_selected_tid;
     uint single_selected_vid;
+    uint single_selected_eid;
     uint single_selected_edge_v1;
     uint single_selected_edge_v2;
     uint mode;
@@ -74,6 +89,10 @@ layout(binding = 5) uniform UniformBufferObject {
     uint geomode;
     float time;
 } ubo;
+
+layout(binding = 6) readonly buffer EdgeSSBOIn {
+    Edge edgeIn[ ];
+};
 
 layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 
@@ -217,7 +236,7 @@ void main() {
             float w = 1.0f - u - v;
             hovered_tid = (u > v && u > w) ? tri.b : (v > w ? tri.c : tri.a);
             vertex_position = project_vertex(vertexIn[hovered_tid]);
-        } else if (o_ubo.mode == EDGE_SELECT) {
+        } else if (o_ubo.mode == EDGE_SELECT && ubo.geomode == 0) {
             hovered_edge_v1 = -1;
             hovered_edge_v2 = -1;
             Ray ray = create_ray(vec2(rx, ry));
@@ -247,6 +266,13 @@ void main() {
             } else {
                 hovered_edge_v1 = tri.b;
                 hovered_edge_v2 = tri.c;
+            }
+        } else if (o_ubo.mode == EDGE_SELECT) {
+		    hovered_tid = raygenIn[gl_GlobalInvocationID.x].tid;
+            if (hovered_tid != -1) {
+                Edge e = edgeIn[hovered_tid];
+                hovered_edge_v1 = e.a;
+                hovered_edge_v2 = e.b;
             }
         }
     }

@@ -112,7 +112,8 @@ vec3 hsv2rgb(vec3 c) {
 
 vec3 rainbow(Hit h) {
     float t = abs(h.value);
-    if (ubo.edgemode == 0 || ubo.geomode == 0) return vec3(1.0);
+    if (ubo.geomode == 0) return vec3(1.0);
+    if (ubo.edgemode == 0 && h.value == 0) return vec3(0.1);
     vec3 color = vec3(1.0);
     if (t < 1.0) {
         t = clamp(t, 0.0, 1.0);
@@ -320,7 +321,7 @@ Hit trace(Ray ray, inout uint hit_id) {
                 if (edge_intersect(ray, node.left, _hit)) {
                     if (hit.distance == -1.0 || _hit.distance < hit.distance) {
                         hit = _hit;
-    					//hit_id = node.left; TODO: reimplement after overlay is modified for edges
+    					hit_id = node.left;
                     }
                 }
             } else {
@@ -354,7 +355,7 @@ vec3 shade(Ray ray, Hit hit, uint hit_id) {
                      0.35*lambert(hit.normal, fill_light) +
                      0.3*lambert(hit.normal, back_light);
     vec3 color = clamp((lighting + rim + ambient) * vec3(0.8), vec3(0.25), vec3(1));
-    if (triangleIn[hit_id].hole != 0) color *= 0.1;
+    if (ubo.geomode == 0 && triangleIn[hit_id].hole != 0) color *= 0.1;
     return color;
 }
 

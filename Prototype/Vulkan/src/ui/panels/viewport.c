@@ -194,6 +194,7 @@ void UpdateViewportPanel(float width, float height) {
                 Edge edge = HoveredEdge();
                 if (edge.a != (VertexID)-1 && edge.b != (VertexID)-1) {
                     SetEditEdge(edge);
+                    SetSelectedEdgeID(HoveredEdgeID());
                 } else {
                     DeselectEditTarget();
                 }

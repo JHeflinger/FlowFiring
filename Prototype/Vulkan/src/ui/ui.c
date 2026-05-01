@@ -252,6 +252,10 @@ void DrawDropdownMenu() {
     else if (InputButtonReleased(IK_MOUSELEFT)) g_dropdownmenu_data.active = 2;
 }
 
+BOOL IsAlphaNumeric(int c) {
+    return (c >= 48 && c <= 57) || (c >= 65 && c <= 90) || (c >= 97 && c <= 122);
+}
+
 void HandleTextInput() {
     int c;
     size_t pre_cursor = g_textinput_data.cursor;
@@ -259,6 +263,7 @@ void HandleTextInput() {
     backspace_timer += GetFrameTime();
     if (!InputKeyDown(IK_BACKSPACE)) backspace_timer = 0.0f;
     while ((c = GetCharPressed()) != 0) {
+        if (!IsAlphaNumeric(c)) continue;
         if (g_textinput_data.cursor >= g_textinput_data.size - 1) continue;
         if (g_textinput_data.cursor < strlen(g_textinput_data.buffer)) {
             for (size_t i = strlen(g_textinput_data.buffer); i > g_textinput_data.cursor; i--) {
@@ -407,6 +412,15 @@ void UIDrawText(const char* text, ...) {
     g_ui_cursor.x = 10;
 }
 
+void UIDrawWarning(const char* text, ...) {
+    va_list args;
+    va_start(args, text);
+    vsnprintf(g_ui_text_buffer, MAX_LINE_WIDTH - 1, text, args);
+    DrawTextEx(FontAsset(), g_ui_text_buffer, g_ui_cursor, LINE_HEIGHT, 0, g_ui_disabled ? MappedColor(UI_TEXT_DISABLED) : MappedColor(UI_TEXT_WARNING));
+    g_ui_cursor.y += LINE_HEIGHT;
+    g_ui_cursor.x = 10;
+}
+
 void UIDrawSubtleText(const char* text, ...) {
     va_list args;
     va_start(args, text);
@@ -504,6 +518,31 @@ void UICheckboxLabeled(const char* label, BOOL* value) {
 
 BOOL UIDragUInt_(PersistantUIData* data, uint32_t* value, uint32_t min, uint32_t max, uint32_t speed, size_t w) {
     BOOL ret = FALSE;
+    DrawRectangle(g_ui_cursor.x, g_ui_cursor.y + 1, w, LINE_HEIGHT - 2, MappedColor(UI_DRAG_INT_COLOR));
+    if (w > 20) {
+        w -= 20;
+        DrawTriangle(
+            (Vector2){g_ui_cursor.x + 5 + w, g_ui_cursor.y + LINE_HEIGHT/2.0f + 2},
+            (Vector2){g_ui_cursor.x + 10 + w, g_ui_cursor.y + LINE_HEIGHT - 2},
+            (Vector2){g_ui_cursor.x + 15 + w, g_ui_cursor.y + LINE_HEIGHT/2.0f + 2},
+            MappedColor(UI_TEXT_COLOR));
+        DrawTriangle(
+            (Vector2){g_ui_cursor.x + 15 + w, g_ui_cursor.y + LINE_HEIGHT/2.0f - 2},
+            (Vector2){g_ui_cursor.x + 10 + w, g_ui_cursor.y + 2},
+            (Vector2){g_ui_cursor.x + 5 + w, g_ui_cursor.y + LINE_HEIGHT/2.0f - 2},
+            MappedColor(UI_TEXT_COLOR));
+        if (InputButtonPressed(IK_MOUSELEFT) && CheckCollisionPointRec(
+            GetMousePosition(),
+            (Rectangle){ g_ui_cursor.x + g_ui_position.x + w, g_ui_position.y + g_ui_cursor.y, 20, LINE_HEIGHT/2.0f })) {
+            if (*value < max) *value += 1;
+            ret = TRUE;
+        } else if (InputButtonPressed(IK_MOUSELEFT) && CheckCollisionPointRec(
+            GetMousePosition(),
+            (Rectangle){ g_ui_cursor.x + g_ui_position.x + w, g_ui_position.y + g_ui_cursor.y + LINE_HEIGHT/2.0f, 20, LINE_HEIGHT/2.0f })) {
+            if (*value > min) *value -= 1;
+            ret = TRUE;
+        }
+    }
     if (InputButtonPressed(IK_MOUSELEFT) &&
         CheckCollisionPointRec(
             GetMousePosition(),
@@ -524,7 +563,6 @@ BOOL UIDragUInt_(PersistantUIData* data, uint32_t* value, uint32_t min, uint32_t
     char buffer[32] = { 0 };
     snprintf(buffer, 32, "%llu", (long long unsigned int)(*value));
     Vector2 text_size = MeasureTextEx(FontAsset(), buffer, LINE_HEIGHT, 0);
-    DrawRectangle(g_ui_cursor.x, g_ui_cursor.y + 1, w, LINE_HEIGHT - 2, MappedColor(UI_DRAG_INT_COLOR));
     DrawTextEx(FontAsset(), buffer, (Vector2){ g_ui_cursor.x + (w/2) - (text_size.x/2), g_ui_cursor.y }, LINE_HEIGHT, 0, MappedColor(UI_TEXT_COLOR));
     g_ui_cursor.y += LINE_HEIGHT;
     g_ui_cursor.x = 10;
@@ -540,6 +578,31 @@ BOOL UIDragUIntLabeled_(PersistantUIData* data, const char* label, uint32_t* val
 
 BOOL UIDragInt_(PersistantUIData* data, int32_t* value, int32_t min, int32_t max, int32_t speed, size_t w) {
     BOOL ret = FALSE;
+    DrawRectangle(g_ui_cursor.x, g_ui_cursor.y + 1, w, LINE_HEIGHT - 2, MappedColor(UI_DRAG_INT_COLOR));
+    if (w > 20) {
+        w -= 20;
+        DrawTriangle(
+            (Vector2){g_ui_cursor.x + 5 + w, g_ui_cursor.y + LINE_HEIGHT/2.0f + 2},
+            (Vector2){g_ui_cursor.x + 10 + w, g_ui_cursor.y + LINE_HEIGHT - 2},
+            (Vector2){g_ui_cursor.x + 15 + w, g_ui_cursor.y + LINE_HEIGHT/2.0f + 2},
+            MappedColor(UI_TEXT_COLOR));
+        DrawTriangle(
+            (Vector2){g_ui_cursor.x + 15 + w, g_ui_cursor.y + LINE_HEIGHT/2.0f - 2},
+            (Vector2){g_ui_cursor.x + 10 + w, g_ui_cursor.y + 2},
+            (Vector2){g_ui_cursor.x + 5 + w, g_ui_cursor.y + LINE_HEIGHT/2.0f - 2},
+            MappedColor(UI_TEXT_COLOR));
+        if (InputButtonPressed(IK_MOUSELEFT) && CheckCollisionPointRec(
+            GetMousePosition(),
+            (Rectangle){ g_ui_cursor.x + g_ui_position.x + w, g_ui_position.y + g_ui_cursor.y, 20, LINE_HEIGHT/2.0f })) {
+            if (*value < max) *value += 1;
+            ret = TRUE;
+        } else if (InputButtonPressed(IK_MOUSELEFT) && CheckCollisionPointRec(
+            GetMousePosition(),
+            (Rectangle){ g_ui_cursor.x + g_ui_position.x + w, g_ui_position.y + g_ui_cursor.y + LINE_HEIGHT/2.0f, 20, LINE_HEIGHT/2.0f })) {
+            if (*value > min) *value -= 1;
+            ret = TRUE;
+        }
+    }
     if (InputButtonPressed(IK_MOUSELEFT) &&
         CheckCollisionPointRec(
             GetMousePosition(),
@@ -560,7 +623,6 @@ BOOL UIDragInt_(PersistantUIData* data, int32_t* value, int32_t min, int32_t max
     char buffer[32] = { 0 };
     snprintf(buffer, 32, "%lld", (long long int)(*value));
     Vector2 text_size = MeasureTextEx(FontAsset(), buffer, LINE_HEIGHT, 0);
-    DrawRectangle(g_ui_cursor.x, g_ui_cursor.y + 1, w, LINE_HEIGHT - 2, MappedColor(UI_DRAG_INT_COLOR));
     DrawTextEx(FontAsset(), buffer, (Vector2){ g_ui_cursor.x + (w/2) - (text_size.x/2), g_ui_cursor.y }, LINE_HEIGHT, 0, MappedColor(UI_TEXT_COLOR));
     g_ui_cursor.y += LINE_HEIGHT;
     g_ui_cursor.x = 10;

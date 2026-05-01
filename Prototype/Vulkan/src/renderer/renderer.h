@@ -87,6 +87,10 @@ void SubmitTOH(size_t width, size_t length, size_t height);
 
 void RestartSimulation();
 
+void SaveSimulationToFile(const char* path);
+
+BOOL LoadSimulationFromFile(const char* path);
+
 void SaveSimulation();
 
 BOOL LoadSimulation();

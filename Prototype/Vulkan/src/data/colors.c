@@ -31,6 +31,7 @@ void InitializeColors() {
     g_color_map.colors[PANEL_GRAPH_SUBTLE_LINE_COLOR] = (Color) { 240, 240, 240, 100 };
     g_color_map.colors[UI_TEXT_DISABLED] = (Color) { 120, 120, 120, 255 };
     g_color_map.colors[UI_BOX_DISABLED] = (Color) { 45, 45, 45, 255 };
+    g_color_map.colors[UI_TEXT_WARNING] = (Color) { 255, 255, 0, 255 };
     g_color_map.initialized = TRUE;
 }
 

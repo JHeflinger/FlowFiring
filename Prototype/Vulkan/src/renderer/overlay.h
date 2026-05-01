@@ -34,8 +34,14 @@ VertexID GetSelectedVertex();
 
 Edge HoveredEdge();
 
+uint32_t HoveredEdgeID();
+
 void SetSelectedEdge(Edge edge);
 
 Edge GetSelectedEdge();
+
+void SetSelectedEdgeID(uint32_t index);
+
+uint32_t GetSelectedEdgeID();
 
 #endif

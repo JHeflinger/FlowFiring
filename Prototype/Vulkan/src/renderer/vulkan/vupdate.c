@@ -322,6 +322,7 @@ void VUPDT_UniformBuffers(UBOArray* ubos) {
         ubo.single_selected_vid = GetSelectedVertex();
         ubo.single_selected_edge_v1 = GetSelectedEdge().a;
         ubo.single_selected_edge_v2 = GetSelectedEdge().b;
+        ubo.single_selected_eid = GetSelectedEdgeID();
         ubo.mode = GetOverlayMode();
         memcpy(ubos->overlay_mapped[g_vupdt_renderer_ref->swapchain.index], &ubo, sizeof(OverlayUniformBufferObject));
     }
