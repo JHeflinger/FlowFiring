@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -eo pipefail
+
 # create all build directories if it does not exist
 if [ ! -d "build" ]; then
     mkdir "build"
@@ -65,43 +67,42 @@ else
     echo -e "\033[32mFinished\033[0m building shaders in ${elapsed}s"
 fi
 
-# for mac - compile builder instead
-if [ "$PLATFORM" = "Darwin" ] && [ ! -f "build/tiny_macos.bin" ]; then
-    cd build
-    curl -L -s -o "tiny.c" "https://raw.githubusercontent.com/JHeflinger/tiny/refs/heads/main/tiny.c"
-    gcc -Wall -O2 tiny.c -o tiny_macos.bin -pthread
-    ./tiny_macos.bin -v
-    rm tiny.c
-    cd ..
-fi
-
-# download builder
+# builder download and local paths
 if [ "$PLATFORM" = "Darwin" ]; then
-    URL="https://github.com/JHeflinger/tiny/raw/refs/heads/main/bin/tiny_macos.bin"
+    URL="https://raw.githubusercontent.com/JHeflinger/tiny/refs/heads/main/tiny.c"
     OUT="tiny_macos.bin"
 else
     URL="https://github.com/JHeflinger/tiny/raw/refs/heads/main/bin/tiny_linux.bin"
     OUT="tiny_linux.bin"
 fi
-if [ ! -f "build/$OUT" ] || [ "$1" == "-u" ] || [ "$2" == "-u" ]; then
+
+# for macos - compile builder instead
+if [ ! -f "build/$OUT" ] || [ "$1" == "-u" ] || [ "$2" == "-u" ] || [ "$3" == "-u" ]; then
     if [ -f "build/$OUT" ]; then
         echo "Updating tiny builder..."
         rm "build/$OUT"
     else
         echo "Downloading tiny builder..."
-    fi
+    fi 
     cd build
-    curl -L -s -o "$OUT" "$URL"
-    chmod +x "$OUT"
+    if [ "$PLATFORM" = "Darwin" ]; then
+        curl -L -s -o "tiny.c" "$URL"
+        gcc -Wall -O2 tiny.c -o tiny_macos.bin -pthread
+        ./tiny_macos.bin -v
+        rm tiny.c
+    else
+        curl -L -s -o "$OUT" "$URL"
+        chmod +x "$OUT"
+    fi
     cd ..
 fi
 
 # run builder
 PROD=""
-if [ "$1" == "-p" ] || [ "$2" == "-p" ] || [ "$3" == "-p" ]; then
-    PROD="-prod"
-fi
+for arg in "$@"; do
+    if [ "$arg" == "-p" ]; then
+        PROD="-prod"
+        break
+    fi
+done
 ./build/$OUT $PROD
-if [ $? -ne 0 ]; then
-    exit 1
-fi

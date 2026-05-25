@@ -1,3 +1,7 @@
+#!/usr/bin/env bash
+
+set -eo pipefail
+
 if [ -d "build/cache" ]; then
 	rm -rf build/cache
 fi

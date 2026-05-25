@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -e # exit immediately on any error
+set -eo pipefail
 
 APP_NAME="Flow"
 BUNDLE_ID="com.yourname.flow"
