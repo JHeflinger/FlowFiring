@@ -70,6 +70,13 @@ void DrawEditPanel(float width, float height) {
             UIDrawText("Flow");
             UIMoveCursor(140, -20);
             changed |= UIDragInt(&(ref->flow), INT32_MIN, INT32_MAX, 1, sboxwidth);
+            UIMoveCursor(0, 10);
+            if (UIButton("Flip Direction", width - 20)) {
+                VertexID tmp = ref->a;
+                ref->a = ref->b;
+                ref->b = tmp;
+                changed = TRUE;
+            }
             if (changed) UpdateEdges();
         } else {
             EZ_FATAL("Unhandled edit type detected");
