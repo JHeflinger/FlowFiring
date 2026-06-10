@@ -18,6 +18,7 @@ void SelectNoneMode() {
 
 void SelectTriangleMode() {
     g_overlay_mode = TRIANGLE_SELECT_MODE;
+    if (RenderConfig()->geomode == 1) g_overlay_mode = EDGE_SELECT_MODE;
 }
 
 void SelectVertexMode() {

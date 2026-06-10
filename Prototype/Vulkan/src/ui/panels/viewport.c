@@ -227,7 +227,7 @@ Panel GenerateViewportPanel() {
     AddBind("zoom viewport camera", ZoomCameraControls, (BindCommand){ IK_ZOOM, BIND_KEY_END });
 	AddBind("reset viewport camera", ResetViewportCamera, (BindCommand){ IK_RESET_CAMERA, BIND_KEY_PRESSED });
 	AddBind("fit viewport camera to model", FitCamera, (BindCommand){ IK_FIT_CAMERA, BIND_KEY_PRESSED });
-	AddBind("Toggle face hole", ToggleHole, (BindCommand){ IK_TOGGLE_HOLE, BIND_KEY_PRESSED });
+	AddBind("toggle face hole", ToggleHole, (BindCommand){ IK_TOGGLE_HOLE, BIND_KEY_PRESSED });
     AddBind("toggle input hints", ToggleHints, (BindCommand){ IK_TOGGLE_HINTS, BIND_KEY_PRESSED });
     AddBind("toggle color legend", ToggleLegend, (BindCommand){ IK_TOGGLE_LEGEND, BIND_KEY_PRESSED });
     return p;

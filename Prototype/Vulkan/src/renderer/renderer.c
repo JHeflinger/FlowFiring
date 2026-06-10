@@ -10,6 +10,7 @@
 #include <easymemory.h>
 #include <string.h>
 #include <time.h>
+#include <easybasics.h>
 
 Renderer g_renderer = { 0 };
 Vector2 g_override_resolution = { 0 };
@@ -17,6 +18,9 @@ float g_rft = 0.0f;
 uint32_t g_prevmode = 0;
 Vector3 g_toh_dims = { 0 };
 char g_sim_name[1024] = "ILoveFlowFiring";
+ARRLIST_uint8_t g_replay = { 0 };
+BOOL g_replaying = FALSE;
+size_t g_replay_index = 0;
 
 PipelineFlags GetPipelineFlags() {
     return g_renderer.config.flags;
@@ -99,7 +103,7 @@ void InitializeRenderer() {
         Triangle* tref = TriangleReference(637);
         tref->hole = TRUE;
         EdgeMeta* eref = EdgeReference((Edge){ 142, 109 });
-        int val = 100;
+        int val = 12;
         eref->flow = val;
         eref = EdgeReference((Edge){ 143, 109 });
         eref->flow = val;
@@ -120,6 +124,9 @@ void DestroyRenderer() {
     // unload cpu swap textures
     for (size_t i = 0; i < CPUSWAP_LENGTH; i++)
 	    UnloadRenderTexture(g_renderer.swapchain.target[i]);
+
+    // destroy replay
+    ARRLIST_uint8_t_clear(&g_replay);
 }
 
 SimpleCamera GetCamera() {
@@ -768,4 +775,35 @@ BOOL LoadSimulation() {
 void ClearSimulation() {
     ClearTriangles();
     ClearVertices();
+}
+
+void ClearReplay() {
+    g_replay_index = 0;
+    ARRLIST_uint8_t_wipe(&g_replay);
+}
+
+void AppendReplay(uint8_t bits) {
+    ARRLIST_uint8_t_add(&g_replay, bits);
+}
+
+size_t ReplaySize() {
+    return g_replay.size;
+}
+
+uint8_t NextReplayBits() {
+    if (g_replay_index >= g_replay.size) return 0;
+    return g_replay.data[g_replay_index++];
+}
+
+BOOL ReplayEnabled() {
+    return g_replaying;
+}
+
+void EnableReplay() {
+    g_replaying = TRUE;
+}
+
+void DisableReplay() {
+    g_replay_index = 0;
+    g_replaying = FALSE;
 }

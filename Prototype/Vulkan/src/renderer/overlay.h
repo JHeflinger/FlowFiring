@@ -10,6 +10,14 @@ typedef enum {
     EDGE_SELECT_MODE = 3,
 } OverlayMode;
 
+void SelectNoneMode();
+
+void SelectTriangleMode();
+
+void SelectVertexMode();
+
+void SelectEdgeMode();
+
 void SetOverlayContext(Renderer* renderer);
 
 void SetViewportRec(Rectangle rec);

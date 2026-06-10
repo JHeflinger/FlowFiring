@@ -1,5 +1,6 @@
 #include "simulate.h"
 #include "renderer/renderer.h"
+#include "renderer/overlay.h"
 
 uint32_t g_simulate_steps = 0;
 uint32_t g_simstepsize = 1;
@@ -9,6 +10,37 @@ char* g_viewmode_labels[] = { "Free Perspective", "Free Orthographic", "Cubic", 
 char* g_geomode_labels[] = { "Faces", "Edges" };
 char* g_edgemode_labels[] = { "Static", "Colored", "Directional", "Flow" };
 char* g_crossmode_labels[] = { "Dynamic", "Snap" };
+
+void StartSimulation() {
+    g_simulation_running = TRUE;
+    g_simulation_started = TRUE;
+}
+
+void PauseSimulation() {
+    g_simulation_running = FALSE;
+    g_simulation_started = TRUE;
+}
+
+void ResumeSimulation() {
+    g_simulation_running = TRUE;
+    g_simulation_started = TRUE;
+}
+
+void StopSimulation() {
+    g_simulate_steps = (uint32_t)-1;
+    g_simulation_running = FALSE;
+    g_simulation_started = FALSE;
+    RestartSimulation();
+    DisableReplay();
+    ClearReplay();
+}
+
+void ReplaySimulation() {
+    EnableReplay();
+    RestartSimulation();
+    g_simulation_running = TRUE;
+    g_simulation_started = TRUE;
+}
 
 size_t DropdownSelectViewmode(void* data, size_t index) {
     if (index == (size_t)-1) {
@@ -24,6 +56,9 @@ size_t DropdownSelectGeomode(void* data, size_t index) {
         return RenderConfig()->geomode;
     } else {
         RenderConfig()->geomode = index;
+        if (RenderConfig()->geomode == 1 && GetOverlayMode() == TRIANGLE_SELECT_MODE) {
+            SelectEdgeMode();
+        }
     }
     return index;
 }
@@ -55,10 +90,7 @@ void DrawSimulatePanel(float width, float height) {
         g_simulation_started = TRUE;
     }
     if (UIButton("Stop", width - 20)) {
-        g_simulate_steps = (uint32_t)-1;
-        g_simulation_running = FALSE;
-        g_simulation_started = FALSE;
-        RestartSimulation();
+        StopSimulation();
     }
     if (UIButton("Step", (width - 20.0f)/2.0f)) {
         g_simulation_running = TRUE;
@@ -66,6 +98,11 @@ void DrawSimulatePanel(float width, float height) {
     }
     UIMoveCursor((width - 20.0f)/2.0f, -20);
     UIDragUInt(&g_simstepsize, 1, 10000, 1, (width - 20.0f)/2.0f);
+    if (ReplaySize() == 0 || g_simulation_running) DisableUI();
+    if (UIButton("Replay", width - 20)) {
+        ReplaySimulation();
+    }
+    EnableUI();
     UIMoveCursor(0, 35);
     RenderConfig()->simulate = FALSE;
     if (g_simulation_running) {

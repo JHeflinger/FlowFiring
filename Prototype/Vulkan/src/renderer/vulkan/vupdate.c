@@ -6,6 +6,8 @@
 #include "renderer/renderer.h"
 #include "renderer/overlay.h"
 #include "renderer/rmath.h"
+#include "ui/panels/simulate.h"
+#include <easybasics.h>
 
 Renderer* g_vupdt_renderer_ref = NULL;
 
@@ -51,14 +53,31 @@ void VUPDT_RecordCommand(VkCommandBuffer command) {
 
     size_t simulates = 0;
     int group_order[4] = { 0, 1, 2, 3 };
+    uint8_t bitorder = 0;
     if (g_vupdt_renderer_ref->config.simulate) {
         simulates = 5;
         g_vupdt_renderer_ref->config.flags |= SIMULATE_PIPELINE_FLAGS;
-        for (int i = 3; i > 0; i--) {
-            int j = rand() % (i + 1);
-            int temp = group_order[i];
-            group_order[i] = group_order[j];
-            group_order[j] = temp;
+        if (ReplayEnabled()) {
+            bitorder = NextReplayBits();
+            if (bitorder == 0) {
+                PauseSimulation();
+                DisableReplay();
+                goto override;
+            }
+            group_order[0] = (bitorder >> 0) & 0b11;
+            group_order[1] = (bitorder >> 2) & 0b11;
+            group_order[2] = (bitorder >> 4) & 0b11;
+            group_order[3] = (bitorder >> 6) & 0b11;
+        } else {
+            override:
+            for (int i = 3; i > 0; i--) {
+                int j = rand() % (i + 1);
+                int temp = group_order[i];
+                group_order[i] = group_order[j];
+                group_order[j] = temp;
+            }
+            for (int i = 0; i < 4; i++) bitorder |= group_order[i] << (i * 2);
+            AppendReplay(bitorder);
         }
     } else {
         g_vupdt_renderer_ref->config.flags &= ~(SIMULATE_PIPELINE_FLAGS);

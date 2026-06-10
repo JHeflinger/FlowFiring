@@ -97,4 +97,18 @@ BOOL LoadSimulation();
 
 void ClearSimulation();
 
+void ClearReplay();
+
+void AppendReplay(uint8_t bits);
+
+size_t ReplaySize();
+
+uint8_t NextReplayBits();
+
+BOOL ReplayEnabled();
+
+void EnableReplay();
+
+void DisableReplay();
+
 #endif
