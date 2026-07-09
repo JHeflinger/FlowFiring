@@ -94,6 +94,11 @@ void DrawSimulatePanel(float width, float height) {
     UIMoveCursor((width - 20.0f)/2.0f, -20);
     UIDropdownMenu((width - 20.0f)/2.0f, 4, g_edgemode_labels, DropdownSelectEdgemode, NULL);
     EnableUI();
+    if (RenderConfig()->geomode != 0) DisableUI();
+    UIDrawText("Hide Solid Faces");
+    UIMoveCursor((width - 20.0f)/2.0f - 2, -20);
+    UICheckbox(&RenderConfig()->hide_solid);
+    EnableUI();
     UIDrawText("Cross Section");
     UIMoveCursor((width - 20.0f)/2.0f, -20);
     UIDragFloat(&(RenderConfig()->depth), 0.0f, FLT_MAX, 0.01f, (width - 20.0f)/2.0f);

@@ -37,6 +37,7 @@ typedef struct {
     alignas(4) float time;
     alignas(4) uint32_t cut_axis;
     alignas(4) float cut_offset;
+    alignas(4) uint32_t hide_solid;
 } UniformBufferObject;
 
 typedef struct {

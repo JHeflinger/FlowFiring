@@ -51,6 +51,7 @@ void InitializeRenderer() {
     g_renderer.config.edgemode = 3;
     g_renderer.config.cut_axis = 0;
     g_renderer.config.cut_offset = 0.0f;
+    g_renderer.config.hide_solid = FALSE;
     g_prevmode = g_renderer.config.geomode;
 
     // initialize min/max BB

@@ -161,6 +161,7 @@ typedef struct {
     size_t edgemode;
     uint32_t cut_axis;
     float cut_offset;
+    BOOL hide_solid;
 } RendererConfig;
 
 typedef struct {

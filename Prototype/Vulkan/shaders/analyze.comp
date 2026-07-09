@@ -90,6 +90,7 @@ layout(binding = 5) uniform UniformBufferObject {
     float time;
     uint cut_axis;
     float cut_offset;
+    uint hide_solid;
 } ubo;
 
 layout(binding = 6) readonly buffer EdgeSSBOIn {
