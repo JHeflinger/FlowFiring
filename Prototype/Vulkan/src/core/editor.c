@@ -83,6 +83,34 @@ void CleanEditor() {
     CloseWindow();
 }
 
+void RunEditorHeadless(const char* load_path, const char* save_path, const char* image_path, int steps) {
+    SetTraceLogLevel(LOG_NONE);
+    SetConfigFlags(FLAG_WINDOW_HIDDEN);
+    InitWindow(EDITOR_DEFAULT_WIDTH, EDITOR_DEFAULT_HEIGHT, "Flow");
+    InitializeInput();
+    InitializeColors();
+    InitializeAssets();
+    InitializeRenderer();
+    if (load_path && !LoadSimulationFromFile(load_path)) {
+        EZ_WARN("Failed to load session '%s' - continuing with default scene", load_path);
+    }
+    SetViewportSlice(EDITOR_DEFAULT_WIDTH, EDITOR_DEFAULT_HEIGHT);
+    RenderConfig()->async = FALSE;
+    RenderConfig()->simulate = TRUE;
+    for (int i = 0; i < steps; i++) {
+        Render();
+    }
+    RenderConfig()->simulate = FALSE;
+    if (save_path) SaveSimulationToFile(save_path);
+    if (image_path) {
+        for (int i = 0; i < CPUSWAP_LENGTH + 1; i++) Render();
+        SaveRender(image_path);
+    }
+    DestroyAssets();
+    DestroyRenderer();
+    CloseWindow();
+}
+
 void RunEditor() {
     // Record memory status for clean check
     #ifndef PROD_BUILD

@@ -146,6 +146,24 @@ void DrawViewportPanel(float width, float height) {
     }
     g_viewport_dimensions = (Vector2){ width, height };
     g_viewport_position = UIGetPosition();
+
+    VertexID hv = HoveredVertex();
+    if (hv != (VertexID)-1) {
+        Geometry* geom = RendererGeometry();
+        int64_t inflow = 0, outflow = 0;
+        for (size_t i = 0; i < geom->edges.size; i++) {
+            EdgeMeta* e = &geom->edges.data[i];
+            int32_t sf;
+            if (e->a == hv) sf = e->flow;
+            else if (e->b == hv) sf = -e->flow;
+            else continue;
+            if (sf > 0) outflow += sf;
+            else inflow += -sf;
+        }
+        Vector2 ppos = UIGetPosition();
+        UISetCursor(GetMouseX() - ppos.x + 15.0f, GetMouseY() - ppos.y + 15.0f);
+        UIDrawText("In: %lld  Out: %lld", (long long)inflow, (long long)outflow);
+    }
 }
 
 void UpdateViewportPanel(float width, float height) {
