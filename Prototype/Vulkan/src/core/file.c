@@ -26,7 +26,7 @@ char* StripFilename(char* path) {
 
 SimpleFile* ReadFile(const char* filename) {
 	SimpleFile* sfile = EZ_ALLOC(1, sizeof(SimpleFile));
-    sfile->type = GetFileType(filename);
+    sfile->type = UNKNOWN;
 	FILE* file = fopen(filename, "rb");
     if (file == NULL) {
         EZ_ERROR("Unable to open file \"%s\"", filename);
