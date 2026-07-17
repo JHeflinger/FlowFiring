@@ -8,6 +8,7 @@ WINDOWS INCLUDE platform/windows/vulkan/include
 WINDOWS INCLUDE platform/windows/GLFW/include
 LINUX LINK vulkan
 WINDOWS LINK vulkan-1
+WINDOWS LINK glfw3
 LINUX LINK glfw
 LINUX LINK GLU
 LINUX LINK GL

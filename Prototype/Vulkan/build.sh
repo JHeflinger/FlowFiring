@@ -21,6 +21,12 @@ cd ..
 # detect platform
 PLATFORM=$(uname -s)
 
+# treat MSYS2/MINGW/Git-Bash/Cygwin shells on Windows as "Windows"
+IS_WINDOWS="false"
+case "$PLATFORM" in
+MINGW* | MSYS* | CYGWIN*) IS_WINDOWS="true" ;;
+esac
+
 # macOS: expose Vulkan SDK paths to compiler
 if [ "$PLATFORM" == "Darwin" ] && [ -n "$VULKAN_SDK" ]; then
     export CPATH="${VULKAN_SDK}/include:${CPATH:-}"
@@ -79,6 +85,9 @@ fi
 if [ "$PLATFORM" = "Darwin" ]; then
     URL="https://github.com/JHeflinger/tiny/raw/refs/heads/main/bin/tiny_macos.bin"
     OUT="tiny_macos.bin"
+elif [ "$IS_WINDOWS" = "true" ]; then
+    URL="https://github.com/JHeflinger/tiny/raw/refs/heads/main/bin/tiny_windows.exe"
+    OUT="tiny_windows.exe"
 else
     URL="https://github.com/JHeflinger/tiny/raw/refs/heads/main/bin/tiny_linux.bin"
     OUT="tiny_linux.bin"

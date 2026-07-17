@@ -1,0 +1,58 @@
+name: Windows Build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    defaults:
+      run:
+        shell: msys2 {0}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up MSYS2 (MinGW64)
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-vulkan-headers
+            mingw-w64-x86_64-vulkan-loader
+            mingw-w64-x86_64-shaderc
+            mingw-w64-x86_64-glfw
+            mingw-w64-x86_64-raylib
+            zip
+            curl
+
+      - name: Vendor Windows dependencies
+        run: |
+          cd Prototype/Vulkan
+          chmod +x vendor_windows.sh
+          ./vendor_windows.sh
+
+      - name: Build (production)
+        run: |
+          chmod +x publish_windows.sh Prototype/Vulkan/build.sh Prototype/Vulkan/clean.sh
+          ./publish_windows.sh
+
+      - name: Package portable build
+        run: |
+          chmod +x package_windows.sh
+          ./package_windows.sh
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Flow-Windows
+          path: Flow-Windows.zip
+          if-no-files-found: error
