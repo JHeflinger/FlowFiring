@@ -14,22 +14,6 @@ const char* FileExtension(const char* path) {
     return dot + 1;
 }
 
-FileType GetFileType(const char* path) {
-    const char* extension = FileExtension(path);
-    if (strcmp(extension, "obj") == 0 || strcmp(extension, "OBJ") == 0) {
-        return DOTOBJ;
-    } else if (strcmp(extension, "prism") == 0 || strcmp(extension, "PRISM") == 0) {
-        return DOTPRISM;
-    } else if (strcmp(extension, "spv") == 0 || strcmp(extension, "SPV") == 0) {
-        return DOTSPV;
-    } else if (strcmp(extension, "mtl") == 0 || strcmp(extension, "MTL") == 0) {
-        return DOTMTL;
-    } else if (strcmp(extension, "xml") == 0 || strcmp(extension, "XML") == 0) {
-        return DOTXML;
-    }
-    return UNKNOWN;
-}
-
 char* StripFilename(char* path) {
     for (int i = (int)strlen(path) - 1; i >= 0; i--) {
         if (path[i] == '/' || path[i] == '\\') {

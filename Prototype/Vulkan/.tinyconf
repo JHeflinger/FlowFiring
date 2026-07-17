@@ -6,9 +6,10 @@ INCLUDE vendor/cglm/include
 INCLUDE vendor/EasyC/include
 WINDOWS INCLUDE platform/windows/vulkan/include
 WINDOWS INCLUDE platform/windows/GLFW/include
+WINDOWS DEFINE GLFW_DLL
 LINUX LINK vulkan
 WINDOWS LINK vulkan-1
-WINDOWS LINK glfw3
+WINDOWS LINK :libglfw3.dll.a
 LINUX LINK glfw
 LINUX LINK GLU
 LINUX LINK GL

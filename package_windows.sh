@@ -45,15 +45,16 @@ fi
 
 # ── 5. Bundle MinGW runtime DLLs ─────────────────────────────────────────────
 # The exe is built with MinGW64 gcc and dynamically links against a few
-# runtime DLLs (e.g. libwinpthread-1.dll, libgcc_s_seh-1.dll). Users without
-# MSYS2/MinGW installed won't have these on PATH, so copy whatever the binary
-# actually needs from the MinGW prefix next to the exe.
+# runtime DLLs (e.g. libwinpthread-1.dll, libgcc_s_seh-1.dll) as well as
+# glfw3.dll (raylib was built against shared GLFW - see vendor_windows.sh).
+# Users without MSYS2/MinGW installed won't have these on PATH, so copy
+# whatever the binary actually needs from the MinGW prefix next to the exe.
 if command -v ldd >/dev/null 2>&1; then
     echo "Copying required MinGW runtime DLLs..."
-    ldd "${OUT_DIR}/${APP_NAME}.exe" 2>/dev/null \
-        | awk '{print $3}' \
-        | grep -iE '/mingw64/' \
-        | while read -r dll; do
+    ldd "${OUT_DIR}/${APP_NAME}.exe" 2>/dev/null |
+        awk '{print $3}' |
+        grep -iE '/mingw64/' |
+        while read -r dll; do
             [ -f "$dll" ] && cp -n "$dll" "${OUT_DIR}/" || true
         done
 fi
