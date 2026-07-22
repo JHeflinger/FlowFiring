@@ -49,7 +49,9 @@ void InitializeRenderer() {
     g_renderer.config.viewmode = 0;
     g_renderer.config.geomode = 1;
     g_renderer.config.edgemode = 3;
-    g_renderer.config.crossmode = 0;
+    g_renderer.config.cut_axis = 0;
+    g_renderer.config.cut_offset = 0.0f;
+    g_renderer.config.hide_solid = FALSE;
     g_prevmode = g_renderer.config.geomode;
 
     // initialize min/max BB
@@ -724,6 +726,17 @@ BOOL LoadSimulationFromFile(const char* path) {
         EZ_WARN("Corrupt session save detected - skipping loading...");
         return FALSE;
     }
+    fseek(file, 0, SEEK_END);
+    long file_size = ftell(file);
+    long expected_size = (long)sizeof(SaveConfig)
+        + (long)conf.edgewrites * (long)sizeof(EdgeWrite)
+        + (long)conf.facewrites * (long)sizeof(FaceWrite);
+    if (file_size != expected_size) {
+        fclose(file);
+        EZ_WARN("Session save layout mismatch - skipping loading...");
+        return FALSE;
+    }
+    fseek(file, sizeof(SaveConfig), SEEK_SET);
     EdgeWrite* ew = NULL;
     FaceWrite* fw = NULL;
     if (conf.edgewrites > 0) {

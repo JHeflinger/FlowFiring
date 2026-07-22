@@ -2,10 +2,12 @@
 #include "ui/ui.h"
 #include "data/colors.h"
 #include "renderer/renderer.h"
+#include "core/utils.h"
 #include <easymemory.h>
 #include <easylogger.h>
 
 #include <stdio.h>
+#include <math.h>
 #include <time.h>
 #include <string.h>
 #include <stdlib.h>
@@ -454,6 +456,16 @@ int add_toh(size_t x, size_t y, size_t w, size_t h) {
     DrawRectangle(xpos, ypos, width, height, MappedColor(PANEL_BG_COLOR));
     UIMoveCursor(xpos + (width / 2) - (UITextWidth("Tetrahedral-Octahedral Honeycomb Bounds") / 2), 0);
     UIDrawText("Tetrahedral-Octahedral Honeycomb Bounds");
+
+    size_t current_ram = CurrentRAMUsage();
+    size_t total_ram = SystemRAMTotal();
+    size_t total_bytes = sizeof(float) * ceil((double)g_toh_h / 2) * ((g_toh_l + 1) * g_toh_w + g_toh_w * (g_toh_l + 1) + 4 * g_toh_w * g_toh_l);
+    size_t total_mb = (size_t)(total_bytes / (1024 * 1024));
+    char ram_text[128];
+    snprintf(ram_text, sizeof(ram_text), "RAM Usage: %zu MB / %zu MB, Expected: %zu MB", current_ram, total_ram, (size_t)(total_mb * 1.1));
+    UIMoveCursor(0, 20); 
+    UIMoveCursor(xpos + (width / 2) - (UITextWidth(ram_text) / 2), 0);
+    UIDrawText(ram_text);
 
     UIMoveCursor(0, 15);
     UIMoveCursor(xpos + (width / 2) - (UITextWidth("Dimensions") / 2) - 10, 0);

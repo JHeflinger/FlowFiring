@@ -308,6 +308,9 @@ void VUPDT_UniformBuffers(UBOArray* ubos) {
         ubo.viewmode = (uint32_t)g_vupdt_renderer_ref->config.viewmode;
         ubo.geomode = (uint32_t)g_vupdt_renderer_ref->config.geomode;
         ubo.time = GetTime();
+        ubo.cut_axis = g_vupdt_renderer_ref->config.cut_axis;
+        ubo.cut_offset = g_vupdt_renderer_ref->config.cut_offset;
+        ubo.hide_solid = (uint32_t)(g_vupdt_renderer_ref->config.hide_solid ? 1 : 0);
         memcpy(ubos->mapped[g_vupdt_renderer_ref->swapchain.index], &ubo, sizeof(UniformBufferObject));
     }
 

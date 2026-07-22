@@ -88,6 +88,9 @@ layout(binding = 5) uniform UniformBufferObject {
     uint viewmode;
     uint geomode;
     float time;
+    uint cut_axis;
+    float cut_offset;
+    uint hide_solid;
 } ubo;
 
 layout(binding = 6) readonly buffer EdgeSSBOIn {
@@ -216,8 +219,10 @@ void main() {
         if (o_ubo.mode == TRIANGLE_SELECT) {
 		    hovered_tid = raygenIn[gl_GlobalInvocationID.x].tid;
         } else if (o_ubo.mode == VERTEX_SELECT) {
+            uint pixel_tid = raygenIn[gl_GlobalInvocationID.x].tid;
+            if (pixel_tid == uint(-1)) { hovered_tid = uint(-1); return; }
             Ray ray = create_ray(vec2(rx, ry));
-            Triangle tri = triangleIn[raygenIn[gl_GlobalInvocationID.x].tid];
+            Triangle tri = triangleIn[pixel_tid];
             vec3 _a = vertexIn[tri.a];
             vec3 _b = vertexIn[tri.b];
             vec3 _c = vertexIn[tri.c];

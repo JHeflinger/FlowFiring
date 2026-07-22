@@ -72,6 +72,9 @@ layout(binding = 0) uniform UniformBufferObject {
     uint viewmode;
     uint geomode;
     float time;
+    uint cut_axis;
+    float cut_offset;
+    uint hide_solid;
 } ubo;
 
 layout(binding = 1) buffer RayGeneratorSSBOIn {
@@ -235,11 +238,24 @@ Ray create_ray(vec2 rg) {
     return ray;
 }
 
+bool point_hidden(vec3 p) {
+    if (ubo.cut_axis == 0) return false;
+    if (ubo.cut_axis == 1) return p.x < ubo.cut_offset;
+    if (ubo.cut_axis == 2) return p.x > ubo.cut_offset;
+    if (ubo.cut_axis == 3) return p.y < ubo.cut_offset;
+    if (ubo.cut_axis == 4) return p.y > ubo.cut_offset;
+    if (ubo.cut_axis == 5) return p.z < ubo.cut_offset;
+    if (ubo.cut_axis == 6) return p.z > ubo.cut_offset;
+    return false;
+}
+
 bool triangle_intersect(Ray ray, uint triangle_ind, inout Hit hit) {
     Triangle tri = triangleIn[triangle_ind];
+    if (ubo.hide_solid != 0 && tri.hole == 0) return false;
     vec3 _a = vertexIn[tri.a];
     vec3 _b = vertexIn[tri.b];
     vec3 _c = vertexIn[tri.c];
+    if (point_hidden(_a) || point_hidden(_b) || point_hidden(_c)) return false;
     vec3 e1 = _b - _a;
     vec3 e2 = _c - _a;
     vec3 h = cross(ray.direction, e2);
@@ -265,6 +281,7 @@ bool edge_intersect(Ray ray, uint edge_ind, inout Hit hit) {
     if (edge.flow == 0 && ubo.edgemode != 0) return false;
     vec3 pa = vertexIn[edge.a];
     vec3 pb = vertexIn[edge.b];
+    if (point_hidden(pa) || point_hidden(pb)) return false;
     vec3 ab = pb - pa;
     vec3 ao = ray.position - pa;
     vec3 ab_n = normalize(ab);
@@ -355,7 +372,7 @@ vec3 shade(Ray ray, Hit hit, uint hit_id) {
                      0.35*lambert(hit.normal, fill_light) +
                      0.3*lambert(hit.normal, back_light);
     vec3 color = clamp((lighting + rim + ambient) * vec3(0.8), vec3(0.25), vec3(1));
-    if (ubo.geomode == 0 && triangleIn[hit_id].hole != 0) color *= 0.1;
+    if (ubo.geomode == 0 && triangleIn[hit_id].hole != 0 && ubo.hide_solid == 0) color *= 0.1;
     return color;
 }
 

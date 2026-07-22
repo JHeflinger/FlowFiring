@@ -1,5 +1,11 @@
 #include "utils.h"
+#include <easylogger.h>
 #include <raymath.h>
+#ifdef __APPLE__
+#include <mach/mach.h>
+#include <sys/sysctl.h>
+#endif
+
 
 float clampf(float x, float minVal, float maxVal) { return fminf(fmaxf(x, minVal), maxVal); }
 float modf_glsl(float x, float y) { return x - y * floorf(x / y); }
@@ -31,4 +37,28 @@ Color Rainbow(float value) {
         (unsigned char)(rgb.z * 255.0f),
         255
     };
+}
+
+
+size_t CurrentRAMUsage() {
+#ifdef __APPLE__
+    struct mach_task_basic_info info;
+    mach_msg_type_number_t infoCount = MACH_TASK_BASIC_INFO_COUNT;
+    if (task_info(mach_task_self(), MACH_TASK_BASIC_INFO,
+                 (task_info_t)&info, &infoCount) == KERN_SUCCESS) {
+        return (size_t)(info.resident_size / (1024 * 1024));
+    }
+#endif
+    return 0;
+}
+
+size_t SystemRAMTotal() {
+#ifdef __APPLE__
+    int64_t total_ram_bytes = 0;
+    size_t length = sizeof(total_ram_bytes);
+    if (sysctlbyname("hw.memsize", &total_ram_bytes, &length, NULL, 0) == 0) {
+        return (size_t)(total_ram_bytes / (1024 * 1024));
+    }
+#endif
+    return 0;
 }

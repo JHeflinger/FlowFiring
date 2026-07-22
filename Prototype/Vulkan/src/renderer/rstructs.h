@@ -159,8 +159,9 @@ typedef struct {
     size_t viewmode;
     size_t geomode;
     size_t edgemode;
-    size_t crossmode;
-    uint32_t snap;
+    uint32_t cut_axis;
+    float cut_offset;
+    BOOL hide_solid;
 } RendererConfig;
 
 typedef struct {

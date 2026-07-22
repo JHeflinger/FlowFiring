@@ -8,7 +8,7 @@ BOOL g_simulation_started = FALSE;
 char* g_viewmode_labels[] = { "Free Perspective", "Free Orthographic", "Cubic", "Ramped", "Corners" };
 char* g_geomode_labels[] = { "Faces", "Edges" };
 char* g_edgemode_labels[] = { "Static", "Colored", "Directional", "Flow" };
-char* g_crossmode_labels[] = { "Dynamic", "Snap" };
+char* g_cutaxis_labels[] = { "None", "X <", "X >", "Y <", "Y >", "Z <", "Z >" };
 
 size_t DropdownSelectViewmode(void* data, size_t index) {
     if (index == (size_t)-1) {
@@ -37,11 +37,11 @@ size_t DropdownSelectEdgemode(void* data, size_t index) {
     return index;
 }
 
-size_t DropdownSelectCrossmode(void* data, size_t index) {
+size_t DropdownSelectCutAxis(void* data, size_t index) {
     if (index == (size_t)-1) {
-        return RenderConfig()->crossmode;
+        return RenderConfig()->cut_axis;
     } else {
-        RenderConfig()->crossmode = index;
+        RenderConfig()->cut_axis = (uint32_t)index;
     }
     return index;
 }
@@ -94,16 +94,22 @@ void DrawSimulatePanel(float width, float height) {
     UIMoveCursor((width - 20.0f)/2.0f, -20);
     UIDropdownMenu((width - 20.0f)/2.0f, 4, g_edgemode_labels, DropdownSelectEdgemode, NULL);
     EnableUI();
-    UIDrawText("Cross Section Mode");
-    UIMoveCursor((width - 20.0f)/2.0f, -20);
-    UIDropdownMenu((width - 20.0f)/2.0f, 2, g_crossmode_labels, DropdownSelectCrossmode, NULL);
+    if (RenderConfig()->geomode != 0) DisableUI();
+    UIDrawText("Hide Solid Faces");
+    UIMoveCursor((width - 20.0f)/2.0f - 2, -20);
+    UICheckbox(&RenderConfig()->hide_solid);
+    EnableUI();
     UIDrawText("Cross Section");
     UIMoveCursor((width - 20.0f)/2.0f, -20);
-    if (RenderConfig()->crossmode == 0) {
-        UIDragFloat(&(RenderConfig()->depth), 0.0f, FLT_MAX, 0.01f, (width - 20.0f)/2.0f);
-    } else {
-        UIDragUInt(&(RenderConfig()->snap), 0, 9999999, 1, (width - 20.0f)/2.0f);
-    }
+    UIDragFloat(&(RenderConfig()->depth), 0.0f, FLT_MAX, 0.01f, (width - 20.0f)/2.0f);
+    UIDrawText("Cut Axis");
+    UIMoveCursor((width - 20.0f)/2.0f, -20);
+    UIDropdownMenu((width - 20.0f)/2.0f, 7, g_cutaxis_labels, DropdownSelectCutAxis, NULL);
+    if (RenderConfig()->cut_axis == 0) DisableUI();
+    UIDrawText("Cut Position");
+    UIMoveCursor((width - 20.0f)/2.0f, -20);
+    UIDragFloat(&(RenderConfig()->cut_offset), -FLT_MAX, FLT_MAX, 0.01f, (width - 20.0f)/2.0f);
+    EnableUI();
 }
 
 Panel GenerateSimulatePanel() {
