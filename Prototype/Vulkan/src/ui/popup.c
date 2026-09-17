@@ -338,7 +338,7 @@ int add_object_popup_stage_0(size_t x, size_t y, size_t w, size_t h) {
         return 3;
     }
     UISetCursor(xpos + (width / 2) - (button_width / 2), ypos + height - 40);
-    if (UIButton("Cancel", button_width)) return 3;
+    if (UIButton("Cancel", button_width)) return 4;
     return -1;
 }
 

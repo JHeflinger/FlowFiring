@@ -6,7 +6,6 @@
 #include <sys/sysctl.h>
 #endif
 
-
 float clampf(float x, float minVal, float maxVal) { return fminf(fmaxf(x, minVal), maxVal); }
 float modf_glsl(float x, float y) { return x - y * floorf(x / y); }
 float mixf(float a, float b, float t) { return a * (1.0f - t) + b * t; }
@@ -38,7 +37,6 @@ Color Rainbow(float value) {
         255
     };
 }
-
 
 size_t CurrentRAMUsage() {
 #ifdef __APPLE__

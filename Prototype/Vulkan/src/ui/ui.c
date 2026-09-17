@@ -8,7 +8,6 @@
 #include "core/binds.h"
 #include <easymemory.h>
 #include <string.h>
-#include <stdlib.h>
 
 IMPL_ARRLIST(Panel);
 

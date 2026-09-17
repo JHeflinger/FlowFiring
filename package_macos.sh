@@ -31,6 +31,46 @@ mkdir -p "$RESOURCES_DIR"
 cp "$BINARY_SRC" "${MACOS_DIR}/${APP_NAME}_bin"
 chmod +x "${MACOS_DIR}/${APP_NAME}_bin"
 
+# ── NEW STEP: Bundle Homebrew dylibs so the app doesn't depend on the
+#     end user having Homebrew/raylib/vulkan installed ──────────────────────
+FRAMEWORKS_DIR="${CONTENTS}/Frameworks"
+mkdir -p "$FRAMEWORKS_DIR"
+
+BIN_PATH="${MACOS_DIR}/${APP_NAME}_bin"
+
+echo "Bundling non-system dependencies..."
+
+# Repeat until no more Homebrew-linked libs are found — bundling one dylib
+# can introduce new transitive dependencies of its own.
+CHANGED="true"
+while [ "$CHANGED" == "true" ]; do
+    CHANGED="false"
+    while IFS= read -r dep; do
+        # only touch Homebrew/local libs — leave system/framework libs alone
+        case "$dep" in
+        /opt/homebrew/* | /usr/local/*)
+            libname=$(basename "$dep")
+            dest="${FRAMEWORKS_DIR}/${libname}"
+            if [ ! -f "$dest" ]; then
+                echo "  - vendoring $libname"
+                cp "$dep" "$dest"
+                chmod +w "$dest"
+                install_name_tool -id "@rpath/${libname}" "$dest"
+                CHANGED="true"
+            fi
+            install_name_tool -change "$dep" "@rpath/${libname}" "$BIN_PATH" 2>/dev/null || true
+            # also fix references between bundled dylibs themselves
+            for f in "$FRAMEWORKS_DIR"/*; do
+                install_name_tool -change "$dep" "@rpath/${libname}" "$f" 2>/dev/null || true
+            done
+            ;;
+        esac
+    done < <(otool -L "$BIN_PATH" "$FRAMEWORKS_DIR"/* 2>/dev/null | grep -oE '/(opt/homebrew|usr/local)[^ ]*\.dylib')
+done
+
+# Make sure the binary can find @rpath-relative libs in Contents/Frameworks
+install_name_tool -add_rpath "@executable_path/../Frameworks" "$BIN_PATH" 2>/dev/null || true
+
 # ── 4. Copy runtime assets into Resources ────────────────────────────────────
 mkdir -p "${RESOURCES_DIR}/shaders"
 if [ -d "$SHADER_SRC" ]; then
@@ -129,6 +169,13 @@ EOF
 #     # Also register it in Info.plist (add before the closing </dict>):
 #     # <key>CFBundleIconFile</key><string>AppIcon</string>
 # fi
+
+# ── NEW STEP: ad-hoc code sign so Gatekeeper's quarantine check finds a
+#     valid (if not Developer-ID) signature; this alone will NOT make the
+#     app open with a plain double-click on macOS 15+, but it's required
+#     as a baseline and matters if you later move to Developer ID signing ──
+echo "Ad-hoc code signing..."
+codesign --force --deep --sign - "$APP_DIR"
 
 # ── 8. Zip for distribution ──────────────────────────────────────────────────
 echo "Zipping ${APP_DIR}..."

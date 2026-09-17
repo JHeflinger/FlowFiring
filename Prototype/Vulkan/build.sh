@@ -33,6 +33,7 @@ esac
 if [ "$PLATFORM" == "Darwin" ] && [ -n "$VULKAN_SDK" ]; then
     export CPATH="${VULKAN_SDK}/include:${CPATH:-}"
     export LIBRARY_PATH="${VULKAN_SDK}/lib:${LIBRARY_PATH:-}"
+    export MACOSX_DEPLOYMENT_TARGET=12.0
 fi
 
 # compile shaders
@@ -92,7 +93,7 @@ if [ ! -f "build/$OUT" ] || [ "$1" == "-u" ] || [ "$2" == "-u" ] || [ "$3" == "-
         rm "build/$OUT"
     else
         echo "Downloading tiny builder..."
-    fi 
+    fi
     cd build
     if [ "$PLATFORM" = "Darwin" ]; then
         curl -L -s -o "tiny.c" "$URL"
