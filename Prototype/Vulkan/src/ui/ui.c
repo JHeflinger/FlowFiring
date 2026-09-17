@@ -972,7 +972,7 @@ void UITextInput_(PersistantUIData* data, const char* label, char* buffer, size_
         if (InputButtonDown(IK_MOUSELEFT)) {
             g_textinput_data = (TextInputData){
                 buffer, size, TRUE, data, strlen(buffer), 
-                (Vector2){g_ui_cursor.x + g_ui_position.x, g_ui_cursor.y + g_ui_position.y}, box_width};
+                (Vector2){g_ui_cursor.x + g_ui_position.x, g_ui_cursor.y + g_ui_position.y}, box_width, TIM_ALPHANUMERIC};
             data->arbitrary_timer = 0.0f;
         }
     }
