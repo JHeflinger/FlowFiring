@@ -41,15 +41,15 @@ void pullflow(uint comingfrom, inout Edge goingto) {
     if (abs(cfrom.flow) >= calcdegree(cfrom)) {
         if (cfrom.a == goingto.a || cfrom.a == goingto.b) {
             if (cfrom.a == goingto.a) {
-                goingto.flow--; // maybe need to reverse +/-?
+                goingto.flow++; // maybe need to reverse +/-?
             } else {
-                goingto.flow++;
+                goingto.flow--;
             }
         } else {
             if (cfrom.b == goingto.b) {
-                goingto.flow--;
-            } else {
                 goingto.flow++;
+            } else {
+                goingto.flow--;
             }
         }
     }
