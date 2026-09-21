@@ -19,25 +19,20 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Set up MSYS2 (MinGW64)
+      - name: Set up MSYS2 (UCRT64)
         uses: msys2/setup-msys2@v2
         with:
-          msystem: MINGW64
+          msystem: UCRT64
           update: true
-
-      - name: Force mirror refresh
-        run: pacman -Syy
-
-      - name: Install Packages
-        run: |
-          pacman -S --noconfirm --needed \
-          mingw-w64-x86_64-gcc \
-          mingw-w64-x86_64-vulkan-headers \
-          mingw-w64-x86_64-vulkan-loader \
-          mingw-w64-x86_64-shaderc \
-          mingw-w64-x86_64-glfw \
-          mingw-w64-x86_64-raylib \
-          zip curl
+          install: >-
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-vulkan-headers
+            mingw-w64-ucrt-x86_64-vulkan-loader
+            mingw-w64-ucrt-x86_64-shaderc
+            mingw-w64-ucrt-x86_64-glfw
+            mingw-w64-ucrt-x86_64-raylib
+            zip
+            curl
 
       - name: Vendor Windows dependencies
         run: |
