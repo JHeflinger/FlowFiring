@@ -19,6 +19,9 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Force mirror refresh
+        run: pacman -Syy
+
       - name: Set up MSYS2 (MinGW64)
         uses: msys2/setup-msys2@v2
         with:
