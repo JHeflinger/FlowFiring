@@ -122,7 +122,17 @@ vec3 rainbow(Hit h) {
         t = clamp(t, 0.0, 1.0);
         color = hsv2rgb(vec3(t, 1.0, 1.0));
     }
-    if (ubo.edgemode == 2) return mix(background_color, color, h.gradient * h.gradient);
+    if (ubo.edgemode == 2) {
+        vec3 bg, cl;
+        if (h.value > 0) {
+            bg = background_color;
+            cl = color;
+        } else {
+            bg = color;
+            cl = background_color;
+        }
+        return mix(bg, cl, h.gradient);
+    }
     if (ubo.edgemode == 3) {
         float frame = fract((h.value > 0 ? h.gradient : -h.gradient) - (ubo.time / 1.0));
         float pulse = pow(frame, 4.0) * pow(1.0 - frame, 1.5);
