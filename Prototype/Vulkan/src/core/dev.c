@@ -5,7 +5,7 @@
 #include "renderer/renderer.h"
 #include "core/binds.h"
 
-void Screenshot() {
+static void Screenshot() {
     SaveRender("out.png");
 }
 

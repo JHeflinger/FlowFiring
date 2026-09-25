@@ -5,15 +5,6 @@
 #include <string.h>
 #include <easymemory.h>
 
-const char* FileExtension(const char* path) {
-    const char* dot = strrchr(path, '.');
-    const char* slash1 = strrchr(path, '/');
-    const char* slash2 = strrchr(path, '\\');
-    const char* slash = slash1 > slash2 ? slash1 : slash2;
-    if (!dot || (slash && dot < slash)) return NULL;
-    return dot + 1;
-}
-
 char* StripFilename(char* path) {
     for (int i = (int)strlen(path) - 1; i >= 0; i--) {
         if (path[i] == '/' || path[i] == '\\') {

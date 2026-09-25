@@ -11,12 +11,11 @@
 #include <string.h>
 #include <time.h>
 
-Renderer g_renderer = { 0 };
-Vector2 g_override_resolution = { 0 };
-float g_rft = 0.0f;
-uint32_t g_prevmode = 0;
-Vector3 g_toh_dims = { 0 };
-char g_sim_name[1024] = "ILoveFlowFiring";
+static Renderer g_renderer = { 0 };
+static Vector2 g_override_resolution = { 0 };
+static float g_rft = 0.0f;
+static uint32_t g_prevmode = 0;
+static Vector3 g_toh_dims = { 0 };
 
 PipelineFlags GetPipelineFlags() {
     return g_renderer.config.flags;
@@ -404,7 +403,7 @@ void Render() {
     }
 }
 
-void DrawHelper(float x, float y, float w, float h, float maxw, float maxh) {
+static void DrawHelper(float x, float y, float w, float h, float maxw, float maxh) {
     ClearBackground(BLACK);
     BeginBlendMode(BLEND_ADDITIVE);
     float diffw = w - g_renderer.dimensions.x;

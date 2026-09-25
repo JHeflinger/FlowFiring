@@ -6,11 +6,11 @@
 #include <sys/sysctl.h>
 #endif
 
-float clampf(float x, float minVal, float maxVal) { return fminf(fmaxf(x, minVal), maxVal); }
-float modf_glsl(float x, float y) { return x - y * floorf(x / y); }
-float mixf(float a, float b, float t) { return a * (1.0f - t) + b * t; }
+static float clampf(float x, float minVal, float maxVal) { return fminf(fmaxf(x, minVal), maxVal); }
+static float modf_glsl(float x, float y) { return x - y * floorf(x / y); }
+static float mixf(float a, float b, float t) { return a * (1.0f - t) + b * t; }
 
-Vector3 hsv2rgb(Vector3 c) {
+static Vector3 hsv2rgb(Vector3 c) {
     Vector3 rgb;
     rgb.x = clampf(fabsf(modf_glsl(c.x * 6.0f + 0.0f, 6.0f) - 3.0f) - 1.0f, 0.0f, 1.0f);
     rgb.y = clampf(fabsf(modf_glsl(c.x * 6.0f + 4.0f, 6.0f) - 3.0f) - 1.0f, 0.0f, 1.0f);

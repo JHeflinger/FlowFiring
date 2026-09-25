@@ -1,16 +1,16 @@
 #include "simulate.h"
 #include "renderer/renderer.h"
 
-uint32_t g_simulate_steps = 0;
-uint32_t g_simstepsize = 1;
-BOOL g_simulation_running = FALSE;
-BOOL g_simulation_started = FALSE;
-char* g_viewmode_labels[] = { "Free Perspective", "Free Orthographic", "Cubic", "Ramped", "Corners" };
-char* g_geomode_labels[] = { "Faces", "Edges" };
-char* g_edgemode_labels[] = { "Static", "Colored", "Directional", "Flow" };
-char* g_cutaxis_labels[] = { "None", "X <", "X >", "Y <", "Y >", "Z <", "Z >" };
+static uint32_t g_simulate_steps = 0;
+static uint32_t g_simstepsize = 1;
+static BOOL g_simulation_running = FALSE;
+static BOOL g_simulation_started = FALSE;
+static char* g_viewmode_labels[] = { "Free Perspective", "Free Orthographic", "Cubic", "Ramped", "Corners" };
+static char* g_geomode_labels[] = { "Faces", "Edges" };
+static char* g_edgemode_labels[] = { "Static", "Colored", "Directional", "Flow" };
+static char* g_cutaxis_labels[] = { "None", "X <", "X >", "Y <", "Y >", "Z <", "Z >" };
 
-size_t DropdownSelectViewmode(void* data, size_t index) {
+static size_t DropdownSelectViewmode(void* data, size_t index) {
     if (index == (size_t)-1) {
         return RenderConfig()->viewmode;
     } else {
@@ -19,7 +19,7 @@ size_t DropdownSelectViewmode(void* data, size_t index) {
     return index;
 }
 
-size_t DropdownSelectGeomode(void* data, size_t index) {
+static size_t DropdownSelectGeomode(void* data, size_t index) {
     if (index == (size_t)-1) {
         return RenderConfig()->geomode;
     } else {
@@ -28,7 +28,7 @@ size_t DropdownSelectGeomode(void* data, size_t index) {
     return index;
 }
 
-size_t DropdownSelectEdgemode(void* data, size_t index) {
+static size_t DropdownSelectEdgemode(void* data, size_t index) {
     if (index == (size_t)-1) {
         return RenderConfig()->edgemode;
     } else {
@@ -37,7 +37,7 @@ size_t DropdownSelectEdgemode(void* data, size_t index) {
     return index;
 }
 
-size_t DropdownSelectCutAxis(void* data, size_t index) {
+static size_t DropdownSelectCutAxis(void* data, size_t index) {
     if (index == (size_t)-1) {
         return RenderConfig()->cut_axis;
     } else {
@@ -46,7 +46,7 @@ size_t DropdownSelectCutAxis(void* data, size_t index) {
     return index;
 }
 
-void DrawSimulatePanel(float width, float height) {
+static void DrawSimulatePanel(float width, float height) {
     UIDrawText("Simulation Controls");
     UIDivider(width - 20);
     if (UIButton(g_simulation_started ? (g_simulation_running ? "Pause" : "Resume") : "Start", width - 20)) {

@@ -7,7 +7,7 @@
 #include "renderer/overlay.h"
 #include "renderer/rmath.h"
 
-Renderer* g_vupdt_renderer_ref = NULL;
+static Renderer* g_vupdt_renderer_ref = NULL;
 
 void VUPDT_Vertices(VulkanDataBuffer* vertices) {
     if (sizeof(vec4) * g_vupdt_renderer_ref->geometry.vertices.maxsize == 0) return;

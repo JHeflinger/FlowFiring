@@ -4,9 +4,9 @@
 #include "data/input.h"
 #include <easymemory.h>
 
-BOOL g_vsync_enabled = TRUE;
+static BOOL g_vsync_enabled = TRUE;
 
-const char* mem_size_descriptor(size_t count) {
+static const char* mem_size_descriptor(size_t count) {
     if (count > 1000000000) {
         return "GB";
     } else if (count > 1000000) {
@@ -18,7 +18,7 @@ const char* mem_size_descriptor(size_t count) {
     }
 }
 
-float mem_size_compact(size_t count) {
+static float mem_size_compact(size_t count) {
     float fcount = count;
     if (count > 1000000000) {
         return fcount / 1000000000.0f;
@@ -31,7 +31,7 @@ float mem_size_compact(size_t count) {
     }
 }
 
-void DrawDevPanel(float width, float height) {
+static void DrawDevPanel(float width, float height) {
     UIDrawText("Application FPS: %d", (int)(1.0f / GetFrameTime()));
     UIDrawText("Frame time: %.6f ms", (1000.0f * GetFrameTime()));
     BOOL vsync = g_vsync_enabled;

@@ -267,19 +267,19 @@ typedef void (*FileHandler)(const char*);
 	#error "Unsupported operating system detected!"
 #endif
 
-uint32_t g_toh_w = 0;
-uint32_t g_toh_l = 0;
-uint32_t g_toh_h = 0;
-char g_save_name_buffer[512] = "Untitled";
-ARRLIST_DynamicString g_session_names = { 0 };
-size_t g_session_index = 0;
+static uint32_t g_toh_w = 0;
+static uint32_t g_toh_l = 0;
+static uint32_t g_toh_h = 0;
+static char g_save_name_buffer[512] = "Untitled";
+static ARRLIST_DynamicString g_session_names = { 0 };
+static size_t g_session_index = 0;
 
-size_t dropdown_select_session(void* data, size_t index) {
+static size_t dropdown_select_session(void* data, size_t index) {
     if (index != (size_t)-1) g_session_index = index;
     return g_session_index;
 }
 
-void collect_sessions(const char* path) {
+static void collect_sessions(const char* path) {
     if (strstr(path, ".ffsession")) {
         int offset = 0;
         if (path[0] == '.' && path[1] == '/') offset = 2;
@@ -291,7 +291,7 @@ void collect_sessions(const char* path) {
     }
 }
 
-int add_object_popup_stage_0(size_t x, size_t y, size_t w, size_t h) {
+static int add_object_popup_stage_0(size_t x, size_t y, size_t w, size_t h) {
     g_toh_w = 5;
     g_toh_l = 5;
     g_toh_h = 5;
@@ -342,7 +342,7 @@ int add_object_popup_stage_0(size_t x, size_t y, size_t w, size_t h) {
     return -1;
 }
 
-int save_toh_as(size_t x, size_t y, size_t w, size_t h) {
+static int save_toh_as(size_t x, size_t y, size_t w, size_t h) {
     float width = 555;
     float height = 300;
     float xpos = x + ((w - width) / 2.0f);
@@ -385,7 +385,7 @@ int save_toh_as(size_t x, size_t y, size_t w, size_t h) {
     return -1;
 }
 
-int save_toh(size_t x, size_t y, size_t w, size_t h) {
+static int save_toh(size_t x, size_t y, size_t w, size_t h) {
     float width = 285;
     float height = 300;
     float xpos = x + ((w - width) / 2.0f);
@@ -412,7 +412,7 @@ int save_toh(size_t x, size_t y, size_t w, size_t h) {
     return -1;
 }
 
-int load_toh(size_t x, size_t y, size_t w, size_t h) {
+static int load_toh(size_t x, size_t y, size_t w, size_t h) {
     float width = 365;
     float height = 300;
     float xpos = x + ((w - width) / 2.0f);
@@ -445,7 +445,7 @@ int load_toh(size_t x, size_t y, size_t w, size_t h) {
     return -1;
 }
 
-int add_toh(size_t x, size_t y, size_t w, size_t h) {
+static int add_toh(size_t x, size_t y, size_t w, size_t h) {
     float width = 385;
     float height = 300;
     float xpos = x + ((w - width) / 2.0f);

@@ -10,10 +10,10 @@ typedef enum {
     EDIT_SINGLE_EDGE
 } EditType;
 
-size_t g_edit_item_index = 0;
-size_t g_edit_item_index_2 = 0;
-BOOL g_item_selected = FALSE;
-EditType g_edit_type = EDIT_SINGLE_TRIANGLE;
+static size_t g_edit_item_index = 0;
+static size_t g_edit_item_index_2 = 0;
+static BOOL g_item_selected = FALSE;
+static EditType g_edit_type = EDIT_SINGLE_TRIANGLE;
 
 void SetEditTriangle(size_t index) {
     g_item_selected = TRUE;
@@ -41,7 +41,7 @@ void DeselectEditTarget() {
     SetSelectedEdge((Edge){ (VertexID)-1, (VertexID)-1 });
 }
 
-void DrawEditPanel(float width, float height) {
+static void DrawEditPanel(float width, float height) {
     float sboxwidth = width - 20 - 140;
     BOOL changed = FALSE;
     if (g_item_selected) {
